@@ -1,0 +1,284 @@
+@import 'tailwindcss';
+
+/*
+ * TOLA light theme.
+ *
+ * v2 rendered the original's dark ground. This build keeps the same gold
+ * identity (#e6b324 — the Rails views' accent, and the default for
+ * BusinessArea#color and CastLevel#color) but sets it on warm paper.
+ *
+ * Gold at its brand value fails contrast as text on white, so the scale splits:
+ * 500 stays the identity colour for fills and borders, 700/800 carry text and
+ * icons. Nothing below 600 is ever used for text on a light ground.
+ */
+
+@theme {
+  /* warm paper, not pure white — pure white makes the gold look dirty */
+  --color-paper-50: #fffdf8;
+  --color-paper-100: #fdfaf3;
+  --color-paper-200: #f7f2e8;
+  --color-paper-300: #efe8da;
+
+  --color-gold-50: #fdf8e7;
+  --color-gold-100: #faecbc;
+  --color-gold-200: #f5dc84;
+  --color-gold-300: #eeca4c;
+  --color-gold-400: #e9bd30;
+  --color-gold-500: #e6b324;
+  --color-gold-600: #c2921a;
+  --color-gold-700: #96700f;
+  --color-gold-800: #6d510a;
+  --color-gold-900: #412f05;
+
+  /* neutral ramp with a warm cast so it sits on the paper */
+  --color-ink-50: #f8f7f5;
+  --color-ink-100: #eeece8;
+  --color-ink-200: #ddd9d3;
+  --color-ink-300: #bdb7ae;
+  --color-ink-400: #8f887e;
+  --color-ink-500: #6b645b;
+  --color-ink-600: #4e4941;
+  --color-ink-700: #3a3630;
+  --color-ink-800: #272420;
+  --color-ink-900: #1a1815;
+
+  /*
+   * The app is phone-first, as the original was. This has to live in the
+   * --container-* namespace: that is where Tailwind 4 reads max-w-* from, and
+   * defining it as --spacing-app silently generates no max-w-app at all.
+   */
+  --container-app: 30rem;
+
+  --font-sans: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, system-ui,
+    -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-paper-200 text-ink-800 antialiased;
+    font-family: var(--font-sans);
+  }
+
+  a {
+    @apply text-gold-700 underline-offset-2;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-bold tracking-tight text-ink-900;
+  }
+
+  ::selection {
+    @apply bg-gold-200 text-ink-900;
+  }
+
+  /*
+   * System messages arrive as pre-rendered HTML from the API — these class
+   * names are written by auto-send-message.ts and by the Rails views before it,
+   * so they are matched here rather than in a component.
+   */
+  .system-message a {
+    @apply text-gold-700 underline;
+  }
+
+  .system-message img {
+    @apply my-1 max-w-full;
+  }
+
+  .system-message p {
+    @apply my-1;
+  }
+
+  .sticker_message_img {
+    @apply mx-auto block h-28 w-28 object-contain;
+  }
+
+  .sticker_message_title_text {
+    @apply mt-1 text-center text-sm font-bold;
+  }
+
+  .sticker_message_text {
+    @apply text-center text-xs text-ink-500;
+  }
+
+  .review_required {
+    @apply mt-2 block rounded-lg bg-gold-50 p-2 text-xs text-gold-800;
+  }
+
+  .message_room_cast_select_btn {
+    @apply mt-2 inline-block rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-bold text-ink-900 no-underline;
+  }
+
+  .form_link {
+    @apply mt-2 inline-block rounded-lg bg-gold-500 px-3 py-1.5 text-sm font-bold text-ink-900 no-underline;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-ink-200 bg-white p-4
+      shadow-[0_1px_2px_rgba(26,24,21,.04),0_8px_24px_-16px_rgba(26,24,21,.18)];
+  }
+
+  /*
+   * Tailwind 4 only lets @apply pull in utilities, not other component classes,
+   * so each button variant spells out the shared base rather than @apply-ing a
+   * `.btn`. The base is identical in all five.
+   */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold
+      no-underline transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold
+      no-underline transition disabled:cursor-not-allowed disabled:opacity-50
+      bg-gold-500 text-ink-900 shadow-sm hover:bg-gold-400 active:bg-gold-600;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold
+      no-underline transition disabled:cursor-not-allowed disabled:opacity-50
+      border border-ink-200 bg-white text-ink-700 hover:bg-ink-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold
+      no-underline transition disabled:cursor-not-allowed disabled:opacity-50
+      text-ink-600 hover:bg-ink-100;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold
+      no-underline transition disabled:cursor-not-allowed disabled:opacity-50
+      bg-red-600 text-white hover:bg-red-500;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-base text-ink-900
+      placeholder:text-ink-400
+      focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-200;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-bold text-ink-500;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold;
+  }
+
+  /*
+   * The run-in heading above each block of the settings and home screens. It
+   * carries its own vertical rhythm — without it those headings sit directly on
+   * the card above them.
+   */
+  .section-title {
+    @apply px-4 pb-2 pt-5 text-xs font-bold uppercase tracking-wide text-ink-500;
+  }
+}
+
+/* hide scrollbars on the horizontal rails, as a phone would */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* the phone frame: content never exceeds the app width, centred on the paper */
+.app-shell {
+  @apply mx-auto w-full max-w-app bg-paper-100 shadow-[0_0_60px_-30px_rgba(26,24,21,.35)];
+  min-height: 100dvh;
+}
+
+/* ---------------------------------------------------------------------------
+ * The operator panel.
+ *
+ * In v2 this was a separate Vite app with its own stylesheet, so it could name
+ * its components `.card`, `.btn-primary`, `.input` and so on without colliding
+ * with the member app's. Here both halves share one document, so the panel's
+ * layer is scoped under `.admin` — two classes beat one, and the member styles
+ * are untouched outside the panel.
+ *
+ * It is a desk UI, not a phone: denser type, slate neutrals, full width.
+ * ------------------------------------------------------------------------- */
+
+.admin {
+  @apply min-h-screen bg-slate-100 text-[13px] text-slate-800;
+}
+
+.admin a {
+  @apply text-gold-700 hover:underline;
+}
+
+.admin .card {
+  @apply rounded-lg border border-slate-200 bg-white p-0 shadow-sm;
+}
+
+.admin .btn {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium
+    transition disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.admin .btn-primary {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium
+    transition disabled:cursor-not-allowed disabled:opacity-50
+    bg-gold-600 text-white shadow-none hover:bg-gold-700 active:bg-gold-700;
+}
+
+.admin .btn-secondary {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium
+    transition disabled:cursor-not-allowed disabled:opacity-50
+    border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+}
+
+.admin .btn-danger {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium
+    transition disabled:cursor-not-allowed disabled:opacity-50
+    bg-rose-600 text-white hover:bg-rose-700;
+}
+
+.admin .input {
+  @apply w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[13px]
+    focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500;
+}
+
+.admin .label {
+  @apply mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500;
+}
+
+.admin .badge {
+  @apply inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold;
+}
+
+.admin .table {
+  @apply w-full border-collapse text-left text-[12px];
+}
+
+.admin .table th {
+  @apply whitespace-nowrap border-b border-slate-200 bg-slate-50 px-2.5 py-2 font-semibold text-slate-600;
+}
+
+.admin .table td {
+  @apply border-b border-slate-100 px-2.5 py-2 align-top;
+}
+
+.admin .table tbody tr:hover {
+  @apply bg-slate-50;
+}
+
+.admin .pill-nav {
+  @apply flex items-center gap-2 rounded-md px-3 py-2 text-[13px] text-slate-600 hover:bg-slate-100;
+}
+
+.admin .pill-nav-active {
+  @apply bg-gold-50 font-semibold text-gold-700 hover:bg-gold-50;
+}
