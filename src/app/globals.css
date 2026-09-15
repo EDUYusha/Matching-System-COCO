@@ -1,24 +1,60 @@
 @import 'tailwindcss';
 
 /*
- * TOLA light theme.
+ * TOLA theme, modelled on the LINE messenger.
  *
- * v2 rendered the original's dark ground. This build keeps the same gold
- * identity (#e6b324 — the Rails views' accent, and the default for
- * BusinessArea#color and CastLevel#color) but sets it on warm paper.
+ * The earlier light theme set a gold accent on warm paper. This one follows the
+ * chat app most members already use every day: a green accent, white screens
+ * on a cool grey ground, flat hairline-separated lists, and a blue-grey talk
+ * room with green and white bubbles. The TOLA name stays; nothing here uses
+ * LINE's logo or name.
  *
- * Gold at its brand value fails contrast as text on white, so the scale splits:
- * 500 stays the identity colour for fills and borders, 700/800 carry text and
- * icons. Nothing below 600 is ever used for text on a light ground.
+ * Green at its fill value is too light for text on white, so the scale splits:
+ * 500 fills buttons, badges and borders, 700/800 carry text and icons. Nothing
+ * below 600 is ever used for text on a light ground.
  */
 
 @theme {
-  /* warm paper, not pure white — pure white makes the gold look dirty */
-  --color-paper-50: #fffdf8;
-  --color-paper-100: #fdfaf3;
-  --color-paper-200: #f7f2e8;
-  --color-paper-300: #efe8da;
+  /* screens are white; the ground around them and between groups is grey */
+  --color-paper-50: #ffffff;
+  --color-paper-100: #ffffff;
+  --color-paper-200: #f2f3f5;
+  --color-paper-300: #e6e8eb;
 
+  --color-brand-50: #e8f9ee;
+  --color-brand-100: #c7f0d6;
+  --color-brand-200: #93e2b0;
+  --color-brand-300: #57d486;
+  --color-brand-400: #28cb68;
+  --color-brand-500: #06c755;
+  --color-brand-600: #05a647;
+  --color-brand-700: #04843a;
+  --color-brand-800: #03652c;
+  --color-brand-900: #02421d;
+
+  /* neutral ramp with a cool cast, as LINE's greys have */
+  --color-ink-50: #f7f8f9;
+  --color-ink-100: #eff0f2;
+  --color-ink-200: #e2e4e7;
+  --color-ink-300: #c9ccd1;
+  --color-ink-400: #8e939a;
+  --color-ink-500: #6b7078;
+  --color-ink-600: #52565c;
+  --color-ink-700: #3a3d42;
+  --color-ink-800: #222427;
+  --color-ink-900: #111213;
+
+  /* the talk room: wallpaper and the two bubble colours */
+  --color-chat-wall: #8cabd8;
+  --color-bubble-mine: #8de055;
+  --color-bubble-theirs: #ffffff;
+
+  /*
+   * The public landing page keeps TOLA's original gold (#e6b324, the Rails
+   * views' accent) on charcoal and cream, for a premium first impression; the
+   * signed-in app uses the green above. Gold text sits at 200/300 on charcoal
+   * and at 700/800 on cream or white.
+   */
   --color-gold-50: #fdf8e7;
   --color-gold-100: #faecbc;
   --color-gold-200: #f5dc84;
@@ -30,17 +66,18 @@
   --color-gold-800: #6d510a;
   --color-gold-900: #412f05;
 
-  /* neutral ramp with a warm cast so it sits on the paper */
-  --color-ink-50: #f8f7f5;
-  --color-ink-100: #eeece8;
-  --color-ink-200: #ddd9d3;
-  --color-ink-300: #bdb7ae;
-  --color-ink-400: #8f887e;
-  --color-ink-500: #6b645b;
-  --color-ink-600: #4e4941;
-  --color-ink-700: #3a3630;
-  --color-ink-800: #272420;
-  --color-ink-900: #1a1815;
+  --color-night-600: #3b3b41;
+  --color-night-700: #2c2c31;
+  --color-night-800: #212125;
+  --color-night-900: #18181b;
+  --color-night-950: #111113;
+
+  --color-cream-50: #fbf8f2;
+  --color-cream-100: #f5efe4;
+  --color-cream-200: #eae0cf;
+
+  /* the Latin display words on the landing page */
+  --font-serif: Georgia, 'Times New Roman', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
 
   /*
    * The app is phone-first, as the original was. This has to live in the
@@ -58,13 +95,20 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /* in-page links, such as the landing page's section menu, glide */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   body {
-    @apply bg-paper-200 text-ink-800 antialiased;
+    @apply bg-paper-200 text-ink-900 antialiased;
     font-family: var(--font-sans);
   }
 
   a {
-    @apply text-gold-700 underline-offset-2;
+    @apply text-brand-700 underline-offset-2;
   }
 
   h1,
@@ -74,7 +118,7 @@
   }
 
   ::selection {
-    @apply bg-gold-200 text-ink-900;
+    @apply bg-brand-100 text-ink-900;
   }
 
   /*
@@ -83,7 +127,7 @@
    * so they are matched here rather than in a component.
    */
   .system-message a {
-    @apply text-gold-700 underline;
+    @apply text-brand-700 underline;
   }
 
   .system-message img {
@@ -103,26 +147,26 @@
   }
 
   .sticker_message_text {
-    @apply text-center text-xs text-ink-500;
+    @apply text-center text-xs text-ink-600;
   }
 
   .review_required {
-    @apply mt-2 block rounded-lg bg-gold-50 p-2 text-xs text-gold-800;
+    @apply mt-2 block rounded-lg bg-brand-50 p-2 text-xs text-brand-800;
   }
 
   .message_room_cast_select_btn {
-    @apply mt-2 inline-block rounded-lg bg-gold-500 px-3 py-1.5 text-xs font-bold text-ink-900 no-underline;
+    @apply mt-2 inline-block rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white no-underline;
   }
 
   .form_link {
-    @apply mt-2 inline-block rounded-lg bg-gold-500 px-3 py-1.5 text-sm font-bold text-ink-900 no-underline;
+    @apply mt-2 inline-block rounded-lg bg-brand-500 px-3 py-1.5 text-sm font-bold text-white no-underline;
   }
 }
 
 @layer components {
+  /* flat, as LINE's surfaces are: a hairline and no drop shadow */
   .card {
-    @apply rounded-2xl border border-ink-200 bg-white p-4
-      shadow-[0_1px_2px_rgba(26,24,21,.04),0_8px_24px_-16px_rgba(26,24,21,.18)];
+    @apply rounded-xl border border-ink-200 bg-white p-4;
   }
 
   /*
@@ -131,42 +175,43 @@
    * `.btn`. The base is identical in all five.
    */
   .btn {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold
       no-underline transition disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold
       no-underline transition disabled:cursor-not-allowed disabled:opacity-50
-      bg-gold-500 text-ink-900 shadow-sm hover:bg-gold-400 active:bg-gold-600;
+      bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold
       no-underline transition disabled:cursor-not-allowed disabled:opacity-50
-      border border-ink-200 bg-white text-ink-700 hover:bg-ink-50;
+      border border-ink-200 bg-white text-ink-800 hover:bg-ink-50;
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold
       no-underline transition disabled:cursor-not-allowed disabled:opacity-50
       text-ink-600 hover:bg-ink-100;
   }
 
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-bold
       no-underline transition disabled:cursor-not-allowed disabled:opacity-50
       bg-red-600 text-white hover:bg-red-500;
   }
 
+  /* filled grey fields that turn white with a green edge on focus */
   .input {
-    @apply w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-base text-ink-900
+    @apply w-full rounded-lg border border-transparent bg-ink-100 px-3.5 py-2.5 text-base text-ink-900
       placeholder:text-ink-400
-      focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-200;
+      focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100;
   }
 
   .label {
-    @apply mb-1.5 block text-xs font-bold text-ink-500;
+    @apply mb-1.5 block text-xs font-bold text-ink-600;
   }
 
   .badge {
@@ -179,7 +224,46 @@
    * the card above them.
    */
   .section-title {
-    @apply px-4 pb-2 pt-5 text-xs font-bold uppercase tracking-wide text-ink-500;
+    @apply px-4 pb-2 pt-5 text-xs font-bold text-ink-500;
+  }
+
+  /*
+   * A talk-room bubble. The first bubble of a run gets a tail at the top corner
+   * nearest the speaker, as LINE draws it; that corner is squared off so the
+   * tail meets the edge. The tail takes the bubble's own background.
+   */
+  .bubble {
+    @apply relative w-fit max-w-full rounded-[18px] px-3 py-2 text-[15px] leading-snug break-words text-ink-900;
+  }
+
+  .bubble-tail-mine,
+  .bubble-tail-theirs {
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      width: 12px;
+      height: 14px;
+      background: inherit;
+    }
+  }
+
+  .bubble-tail-mine {
+    border-top-right-radius: 6px;
+
+    &::before {
+      right: -6px;
+      clip-path: polygon(0 0, 100% 0, 0 100%);
+    }
+  }
+
+  .bubble-tail-theirs {
+    border-top-left-radius: 6px;
+
+    &::before {
+      left: -6px;
+      clip-path: polygon(0 0, 100% 0, 100% 100%);
+    }
   }
 }
 
@@ -193,9 +277,9 @@
   scrollbar-width: none;
 }
 
-/* the phone frame: content never exceeds the app width, centred on the paper */
+/* the phone frame: content never exceeds the app width, centred on the grey */
 .app-shell {
-  @apply mx-auto w-full max-w-app bg-paper-100 shadow-[0_0_60px_-30px_rgba(26,24,21,.35)];
+  @apply mx-auto w-full max-w-app bg-white shadow-[0_0_40px_-24px_rgba(17,18,19,.3)];
   min-height: 100dvh;
 }
 
@@ -208,7 +292,8 @@
  * layer is scoped under `.admin` — two classes beat one, and the member styles
  * are untouched outside the panel.
  *
- * It is a desk UI, not a phone: denser type, slate neutrals, full width.
+ * It is a desk UI, not a phone: denser type, slate neutrals, full width. It
+ * shares only the brand accent with the member app.
  * ------------------------------------------------------------------------- */
 
 .admin {
@@ -216,7 +301,7 @@
 }
 
 .admin a {
-  @apply text-gold-700 hover:underline;
+  @apply text-brand-700 hover:underline;
 }
 
 .admin .card {
@@ -231,7 +316,7 @@
 .admin .btn-primary {
   @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium
     transition disabled:cursor-not-allowed disabled:opacity-50
-    bg-gold-600 text-white shadow-none hover:bg-gold-700 active:bg-gold-700;
+    bg-brand-600 text-white shadow-none hover:bg-brand-700 active:bg-brand-700;
 }
 
 .admin .btn-secondary {
@@ -248,7 +333,7 @@
 
 .admin .input {
   @apply w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[13px]
-    focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500;
+    focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-500;
 }
 
 .admin .label {
@@ -280,5 +365,5 @@
 }
 
 .admin .pill-nav-active {
-  @apply bg-gold-50 font-semibold text-gold-700 hover:bg-gold-50;
+  @apply bg-brand-50 font-semibold text-brand-700 hover:bg-brand-50;
 }

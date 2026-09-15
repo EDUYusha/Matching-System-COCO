@@ -85,7 +85,7 @@ export function RankingPage(): ReactNode {
             type="button"
             onClick={() => setParam('category', entry.value)}
             className={`badge shrink-0 px-2.5 py-1 ${
-              category === entry.value ? 'bg-gold-500 text-ink-900' : 'border border-ink-300 bg-white text-ink-700'
+              category === entry.value ? 'bg-brand-500 text-white' : 'border border-ink-300 bg-white text-ink-700'
             }`}
           >
             {entry.label}
@@ -109,7 +109,7 @@ export function RankingPage(): ReactNode {
       </div>
 
       {data?.campaign ? (
-        <p className="px-4 py-2 text-[11px] text-gold-700">
+        <p className="px-4 py-2 text-[11px] text-brand-700">
           {data.campaign.name}（{l(data.campaign.startAt)} 〜 {l(data.campaign.endAt)}）
         </p>
       ) : null}
@@ -144,14 +144,14 @@ export function RankingPage(): ReactNode {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">
                     {row.nickName}
-                    {row.guestTitle ? <span className="ml-1 text-[10px] text-gold-700">{row.guestTitle}</span> : null}
+                    {row.guestTitle ? <span className="ml-1 text-[10px] text-brand-700">{row.guestTitle}</span> : null}
                   </p>
                   <div className="flex items-center gap-1.5 text-[11px] text-ink-500">
                     <LevelBadge level={row.level} />
                     {row.birthdayPublished && row.age !== null ? <span>{row.age}歳</span> : null}
                   </div>
                 </div>
-                <span className="shrink-0 text-sm font-bold text-gold-700">
+                <span className="shrink-0 text-sm font-bold text-brand-700">
                   {/* the gift-count ranking is a count, not an amount */}
                   {data.category === 'event_choco_count' ? `${row.score}個` : numberToCredits(row.score)}
                 </span>
@@ -160,13 +160,13 @@ export function RankingPage(): ReactNode {
           </ol>
 
           {data.myRanking && !data.myRankingInTopThirty ? (
-            <div className="sticky bottom-[68px] border-t border-gold-300 bg-white/95 px-4 py-3">
+            <div className="sticky bottom-[68px] border-t border-brand-300 bg-white/95 px-4 py-3">
               <p className="mb-1 text-[10px] text-ink-500">あなたの順位</p>
               <div className="flex items-center gap-3">
-                <span className="w-7 text-center text-sm font-bold text-gold-700">{data.myRanking.position}</span>
+                <span className="w-7 text-center text-sm font-bold text-brand-700">{data.myRanking.position}</span>
                 <Avatar src={data.myRanking.profilePicUrl} alt={data.myRanking.nickName} size="sm" />
                 <p className="min-w-0 flex-1 truncate text-sm">{data.myRanking.nickName}</p>
-                <span className="text-sm font-bold text-gold-700">
+                <span className="text-sm font-bold text-brand-700">
                   {data.category === 'event_choco_count'
                     ? `${data.myRanking.score}個`
                     : numberToCredits(data.myRanking.score)}

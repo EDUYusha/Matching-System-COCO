@@ -26,7 +26,7 @@ export function AppShell({ children }: { children: ReactNode }): ReactNode {
   useEffect(() => {
     // remembers where the visitor was headed, as flash[:prev_page] did
     if (!loading && !user) {
-      router.replace(`/?prev_page=${encodeURIComponent(pathname)}`);
+      router.replace(`/login?prev_page=${encodeURIComponent(pathname)}`);
     }
   }, [loading, user, pathname, router]);
 

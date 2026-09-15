@@ -58,10 +58,10 @@ export function HomePage(): ReactNode {
       <div className="grid grid-cols-2 gap-3 px-4 py-4">
         <Link
           href="/meetings/new"
-          className="card flex flex-col items-center gap-1 border-gold-300 bg-gold-50 py-6 no-underline"
+          className="card flex flex-col items-center gap-1 border-brand-300 bg-brand-50 py-6 no-underline"
         >
           <span className="text-2xl">🍻</span>
-          <span className="text-sm font-bold text-gold-700">グループTOLA</span>
+          <span className="text-sm font-bold text-brand-700">グループTOLA</span>
           <span className="text-[10px] text-ink-500">複数キャストを募集</span>
         </Link>
         <Link href="/profiles/search" className="card flex flex-col items-center gap-1 py-6 no-underline">

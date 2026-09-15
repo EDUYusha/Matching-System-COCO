@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import clsx from 'clsx';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -11,10 +12,14 @@ import { api } from '@/client/api';
 import { useAction, useApiQuery, useCableSubscription } from '@/client/hooks';
 import { useCurrentUser } from '@/client/store';
 import { sendMessageOverSocket } from '@/client/socket';
+import { GiftIcon, ImageIcon, SendIcon } from '@/components/icons';
 import { Avatar, Modal, PageHeader, PageLoading, RichText, Spinner } from '@/components/ui';
 
 /**
- * ConversationsController#show — the chat thread.
+ * ConversationsController#show — the chat thread, drawn as a LINE talk room:
+ * the blue-grey wallpaper, the partner's white bubbles on the left under their
+ * avatar, the viewer's green bubbles on the right with 既読 beside them, and a
+ * round composer at the bottom.
  *
  * Besides the messages this hosts the controls the room type unlocks: the
  * arrive/finish buttons on an order room, the gift shelf and roulette, and the
@@ -63,6 +68,12 @@ export function ConversationPage(): ReactNode {
 
   const { conversation, partner, meeting, myAttendance } = data;
   const title = partner?.nickName ?? conversation.name;
+  // the gift shelf belongs to a private room, as the action row did before
+  const canGift = conversation.category === 'private' && !!partner && data.stickers.length > 0;
+  const showActions =
+    conversation.category === 'private' &&
+    !!partner &&
+    (data.canOrder || data.canRequestOrder || data.roulettes.length > 0 || (canGift && data.disableNewMessages));
 
   async function send(event: React.FormEvent): Promise<void> {
     event.preventDefault();
@@ -118,15 +129,19 @@ export function ConversationPage(): ReactNode {
     await refetch();
   }
 
+  const chip =
+    'shrink-0 rounded-full bg-white/95 px-3.5 py-1.5 text-xs font-bold text-ink-800 shadow-sm transition hover:bg-white';
+
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-dvh flex-col bg-chat-wall">
       <PageHeader
         title={title}
         subtitle={meeting ? `${meeting.statusLabel}・${meeting.areaName}` : undefined}
         back="/conversations"
+        tone="chat"
         action={
           partner ? (
-            <Link href={`/profiles/${partner.id}`} className="shrink-0 no-underline">
+            <Link href={`/profiles/${partner.id}`} className="shrink-0 no-underline" aria-label="プロフィールを見る">
               <Avatar src={partner.profilePicUrl} alt={partner.nickName} size="sm" />
             </Link>
           ) : null
@@ -135,13 +150,13 @@ export function ConversationPage(): ReactNode {
 
       {/* the order strip: status, times and the cast's arrive/finish controls */}
       {meeting ? (
-        <div className="border-b border-ink-200 bg-white/70 px-4 py-2.5">
+        <div className="mx-3 mt-1 rounded-2xl bg-white/95 px-4 py-3 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="truncate text-[11px] text-ink-700">
+              <p className="truncate text-xs font-bold text-ink-800">
                 {l(meeting.plannedStartTime)} 〜 {formatDurationMinutes(meeting.plannedLengthMinutes)}
               </p>
-              <p className="text-[11px] text-ink-500">
+              <p className="mt-0.5 text-[11px] text-ink-500">
                 {meeting.areaName} · キャスト{meeting.neededPersonCount}名 ·{' '}
                 {meeting.finalCosts !== null
                   ? numberToCredits(meeting.finalCosts)
@@ -151,7 +166,7 @@ export function ConversationPage(): ReactNode {
             {['finished', 'completed'].includes(meeting.status) ? (
               <Link
                 href={`/meetings/${meeting.id}/review`}
-                className="btn-secondary shrink-0 px-3 py-1.5 text-xs no-underline"
+                className="btn-secondary shrink-0 rounded-full px-3 py-1.5 text-xs no-underline"
               >
                 レビュー
               </Link>
@@ -159,7 +174,7 @@ export function ConversationPage(): ReactNode {
           </div>
 
           {myAttendance && user?.permissions.cast ? (
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2.5 flex gap-2">
               {!myAttendance.startTime ? (
                 <button type="button" className="btn-primary flex-1 py-2 text-xs" onClick={() => void arrive()}>
                   合流開始
@@ -186,21 +201,22 @@ export function ConversationPage(): ReactNode {
         </div>
       ) : null}
 
-      {/* the private-room actions: order, request, gift, roulette */}
-      {conversation.category === 'private' && partner ? (
-        <div className="no-scrollbar flex gap-2 overflow-x-auto border-b border-ink-200 px-4 py-2">
+      {/* the private-room actions: order, request and roulette */}
+      {showActions ? (
+        <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pb-1 pt-2">
           {data.canOrder ? (
-            <button type="button" className="btn-secondary shrink-0 px-3 py-1.5 text-xs" onClick={() => setOrderOpen(true)}>
+            <button type="button" className={chip} onClick={() => setOrderOpen(true)}>
               個TOLAを依頼
             </button>
           ) : null}
           {data.canRequestOrder ? (
-            <button type="button" className="btn-secondary shrink-0 px-3 py-1.5 text-xs" onClick={() => setOrderOpen(true)}>
+            <button type="button" className={chip} onClick={() => setOrderOpen(true)}>
               オーダーを提案
             </button>
           ) : null}
-          {data.stickers.length ? (
-            <button type="button" className="btn-secondary shrink-0 px-3 py-1.5 text-xs" onClick={() => setGiftOpen(true)}>
+          {/* with the composer closed, the gift shelf has no other way in */}
+          {canGift && data.disableNewMessages ? (
+            <button type="button" className={chip} onClick={() => setGiftOpen(true)}>
               ギフトを贈る
             </button>
           ) : null}
@@ -208,7 +224,7 @@ export function ConversationPage(): ReactNode {
             <button
               key={roulette.id}
               type="button"
-              className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
+              className={chip}
               onClick={() => router.push(`/conversations/${conversation.id}/stickers/roulette/${roulette.id}`)}
             >
               {roulette.name}（{numberToCredits(roulette.fee)}）
@@ -217,20 +233,30 @@ export function ConversationPage(): ReactNode {
         </div>
       ) : null}
 
-      <div className="flex-1 space-y-3 px-3 py-4">
+      <div className="flex-1 px-3 pb-4 pt-1">
         {data.overflowMessageId ? (
-          <button type="button" className="btn-ghost mx-auto block text-xs" onClick={() => setPage(page + 1)}>
+          <button
+            type="button"
+            className="mx-auto mt-2 block rounded-full bg-black/20 px-4 py-1 text-[11px] font-bold text-white hover:bg-black/30"
+            onClick={() => setPage(page + 1)}
+          >
             過去のメッセージを読む
           </button>
         ) : null}
 
         {grouped.map(([day, dayMessages]) => (
-          <div key={day} className="space-y-3">
-            <p className="text-center text-[10px] text-ink-500">{day}</p>
-            {dayMessages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
+          <section key={day}>
+            <p className="mx-auto mb-1 mt-4 w-fit rounded-full bg-black/20 px-3 py-0.5 text-[11px] font-medium text-white">
+              {day}
+            </p>
+            {dayMessages.map((message, index) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                startsRun={startsRun(dayMessages[index - 1], message)}
+              />
             ))}
-          </div>
+          </section>
         ))}
         <div ref={bottomRef} />
       </div>
@@ -238,10 +264,14 @@ export function ConversationPage(): ReactNode {
       {!data.disableNewMessages ? (
         <form
           onSubmit={send}
-          className="sticky bottom-0 flex items-end gap-2 border-t border-ink-200 bg-paper-100/90 px-3 py-2 backdrop-blur"
+          className="sticky bottom-0 flex items-end gap-0.5 border-t border-ink-200 bg-white px-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2"
         >
-          <label className="shrink-0 cursor-pointer rounded-lg border border-ink-300 bg-ink-100 px-3 py-2.5 text-sm">
-            📷
+          <label
+            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink-600 hover:bg-ink-100"
+            title="画像を送る"
+          >
+            <ImageIcon className="h-6 w-6" />
+            <span className="sr-only">画像を送る</span>
             <input
               type="file"
               accept="image/*"
@@ -253,10 +283,22 @@ export function ConversationPage(): ReactNode {
               }}
             />
           </label>
+          {canGift ? (
+            <button
+              type="button"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-600 hover:bg-ink-100"
+              onClick={() => setGiftOpen(true)}
+              title="ギフトを贈る"
+              aria-label="ギフトを贈る"
+            >
+              <GiftIcon className="h-6 w-6" />
+            </button>
+          ) : null}
           <textarea
-            className="input max-h-28 min-h-[42px] flex-1 resize-none py-2.5"
+            className="field-sizing-content mx-1 max-h-32 min-h-10 flex-1 resize-none rounded-[20px] bg-ink-100 px-4 py-2 text-[15px] leading-6 text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
             rows={1}
             placeholder="メッセージを送る"
+            aria-label="メッセージ"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -266,33 +308,38 @@ export function ConversationPage(): ReactNode {
               }
             }}
           />
-          <button type="submit" className="btn-primary shrink-0 px-4 py-2.5" disabled={sending || !draft.trim()}>
-            {sending ? <Spinner /> : '送信'}
+          <button
+            type="submit"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-brand-600 transition hover:bg-brand-50 disabled:text-ink-300 disabled:hover:bg-transparent"
+            disabled={sending || !draft.trim()}
+            aria-label="送信"
+          >
+            {sending ? <Spinner /> : <SendIcon className="h-6 w-6" strokeWidth={2} />}
           </button>
         </form>
       ) : (
-        <p className="border-t border-ink-200 px-4 py-3 text-center text-[11px] text-ink-500">
+        <p className="border-t border-ink-200 bg-white px-4 py-3 text-center text-[12px] text-ink-500">
           このチャットルームには返信できません
         </p>
       )}
 
       <Modal open={giftOpen} onClose={() => setGiftOpen(false)} title="ギフトを贈る">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           {data.stickers.map((template) => (
             <button
               key={template.id}
               type="button"
               onClick={() => void sendGift(template.id)}
-              className="rounded-lg border border-ink-300 p-2 text-center"
+              className="rounded-xl p-2 text-center transition hover:bg-ink-50 active:bg-ink-100 disabled:opacity-40"
               disabled={!!template.eventCampaign && template.eventCampaign.remainingToday <= 0}
             >
               <img src={template.pictureUrl} alt={template.name} className="mx-auto h-16 w-16 object-contain" />
-              <span className="mt-1 block truncate text-[11px]">{template.name}</span>
-              <span className="block text-[10px] text-gold-700">
+              <span className="mt-1 block truncate text-[11px] text-ink-800">{template.name}</span>
+              <span className="block text-[11px] font-bold text-brand-700">
                 {template.free ? '無料' : numberToCredits(template.price)}
               </span>
               {template.eventCampaign ? (
-                <span className="block text-[9px] text-ink-500">
+                <span className="block text-[10px] text-ink-500">
                   本日あと{template.eventCampaign.remainingToday}回
                 </span>
               ) : null}
@@ -322,58 +369,95 @@ export function ConversationPage(): ReactNode {
   );
 }
 
-function MessageBubble({ message }: { message: MessageDto }): ReactNode {
+/** Notices are centred across the room rather than drawn as a speaker's bubble. */
+function isNotice(message: MessageDto): boolean {
+  return message.ignored || message.isSystem || message.category === 'service';
+}
+
+/**
+ * Consecutive messages from one speaker form a run: only its first shows the
+ * avatar, the name and the bubble tail, and runs are spaced further apart.
+ */
+function startsRun(previous: MessageDto | undefined, message: MessageDto): boolean {
+  if (!previous || isNotice(previous) || isNotice(message)) return true;
+  return previous.senderId !== message.senderId;
+}
+
+function MessageBubble({ message, startsRun: first }: { message: MessageDto; startsRun: boolean }): ReactNode {
+  const spacing = first ? 'mt-3' : 'mt-1';
+
   if (message.ignored) {
-    return <p className="text-center text-[10px] text-ink-600">ブロック中のユーザーのメッセージ</p>;
+    return (
+      <p className={clsx(spacing, 'mx-auto w-fit rounded-full bg-black/15 px-3 py-0.5 text-[11px] text-white')}>
+        ブロック中のユーザーのメッセージ
+      </p>
+    );
   }
 
-  // system messages are full-width notices rather than bubbles
-  if (message.isSystem || message.category === 'service') {
+  if (isNotice(message)) {
     return (
-      <div className="rounded-xl border border-gold-200 bg-gold-50 px-3 py-2.5">
-        {message.title ? <p className="mb-1 text-xs font-bold text-gold-700">{message.title}</p> : null}
-        <RichText html={message.content} className="text-[11px] leading-relaxed text-ink-900" />
-        <p className="mt-1 text-right text-[9px] text-ink-500">{lClock(message.sentAt)}</p>
+      <div className={clsx(spacing, 'mx-auto max-w-[88%] rounded-2xl bg-white/95 px-4 py-3 shadow-sm')}>
+        {message.title ? <p className="mb-1 text-xs font-bold text-brand-700">{message.title}</p> : null}
+        <RichText html={message.content} className="text-[12px] leading-relaxed text-ink-800" />
+        <p className="mt-1 text-right text-[10px] text-ink-500">{lClock(message.sentAt)}</p>
       </div>
     );
   }
 
   const mine = message.isMine;
+  const surface = mine ? 'bg-bubble-mine' : 'bg-bubble-theirs';
+  const tail = first ? (mine ? 'bubble-tail-mine' : 'bubble-tail-theirs') : null;
+
+  // a photo stands on its own, without a bubble, as in LINE; the minimum size
+  // and tint keep a photo whose upload has gone missing visible as a tile
+  const body =
+    message.category === 'picture' ? (
+      <img
+        src={message.content}
+        alt="写真"
+        className="block min-h-24 min-w-24 max-h-72 max-w-full rounded-2xl bg-white/40 object-cover text-[0px]"
+      />
+    ) : message.category === 'sticker' || message.category === 'internal' ? (
+      <RichText html={message.content} className={clsx('bubble', surface, tail)} />
+    ) : (
+      <RichText html={message.content} className={clsx('bubble whitespace-pre-wrap', surface, tail)} />
+    );
+
+  const meta = (
+    <span
+      className={clsx(
+        'flex shrink-0 flex-col pb-0.5 text-[10px] leading-tight text-ink-900/70',
+        mine ? 'items-end' : 'items-start',
+      )}
+    >
+      {/* LINE marks only a read message; an unread one shows just the time */}
+      {mine && message.partnerUnreadCount === 0 ? <span>既読</span> : null}
+      <span>{lClock(message.sentAt)}</span>
+    </span>
+  );
+
+  if (mine) {
+    return (
+      <div className={clsx(spacing, 'flex items-end justify-end gap-1.5 pl-12 pr-1.5')}>
+        {meta}
+        <div className="flex min-w-0 justify-end">{body}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`flex items-end gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
-      {!mine ? (
-        <img
-          src={message.senderProfilePicUrl}
-          alt={message.senderName}
-          className="h-8 w-8 shrink-0 rounded-full border border-ink-300 object-cover"
-        />
-      ) : null}
-
-      <div className={`max-w-[72%] ${mine ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
-        {!mine ? <span className="text-[10px] text-ink-500">{message.senderName}</span> : null}
-
-        {message.category === 'picture' ? (
-          <img src={message.content} alt="" className="max-w-full rounded-xl border border-ink-200" />
-        ) : message.category === 'sticker' || message.category === 'internal' ? (
-          <RichText
-            html={message.content}
-            className={`rounded-2xl px-3 py-2 ${mine ? 'bg-gold-100' : 'bg-white'}`}
-          />
-        ) : (
-          <RichText
-            html={message.content}
-            className={`whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm leading-relaxed ${
-              mine ? 'bg-gold-500 text-ink-900' : 'bg-white text-ink-900'
-            }`}
-          />
-        )}
-
-        <span className="flex items-center gap-1 text-[9px] text-ink-500">
-          {lClock(message.sentAt)}
-          {/* the original showed "既読" once the partner's unread row was gone */}
-          {mine ? <span>{message.partnerUnreadCount > 0 ? '未読' : '既読'}</span> : null}
-        </span>
+    <div className={clsx(spacing, 'flex items-start gap-2 pr-10')}>
+      {first ? (
+        <Avatar src={message.senderProfilePicUrl} alt={message.senderName} size="sm" />
+      ) : (
+        <span className="w-8 shrink-0" aria-hidden />
+      )}
+      <div className="min-w-0 flex-1">
+        {first ? <p className="mb-1 truncate text-[11px] text-ink-900/80">{message.senderName}</p> : null}
+        <div className="flex items-end gap-1.5">
+          <div className="min-w-0">{body}</div>
+          {meta}
+        </div>
       </div>
     </div>
   );
@@ -539,7 +623,7 @@ function OrderModal({
         ) : null}
 
         <p className="text-[11px] text-ink-500">
-          概算料金 <span className="font-bold text-gold-700">{numberToCredits(estimate)}</span>
+          概算料金 <span className="font-bold text-brand-700">{numberToCredits(estimate)}</span>
           <br />
           延長は1.3倍のポイント消費になります。個TOLAに深夜手当はありません。
         </p>

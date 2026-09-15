@@ -38,7 +38,7 @@ export function IntroMessagePage(): ReactNode {
         <p className="text-[11px] leading-relaxed text-ink-500">
           チャットルームを作成したときに自動で送信される文章です。
           <br />
-          <code className="text-gold-700">%name%</code> は相手のニックネームに置き換わります。
+          <code className="text-brand-700">%name%</code> は相手のニックネームに置き換わります。
           <br />
           空欄で保存すると定型文を削除します。
         </p>

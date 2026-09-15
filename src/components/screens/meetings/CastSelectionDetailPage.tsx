@@ -63,7 +63,7 @@ export function CastSelectionDetailPage(): ReactNode {
         <div className="mt-1 flex flex-wrap gap-2 text-xs text-ink-500">
           {user.birthdayPublished && user.age !== null ? <span>{user.age}歳</span> : null}
           {data.attendance.timesMet && data.attendance.timesMet > 0 ? (
-            <span className="text-gold-700">{data.attendance.timesMet}回ご一緒しています</span>
+            <span className="text-brand-700">{data.attendance.timesMet}回ご一緒しています</span>
           ) : null}
         </div>
         {data.reviewStats ? (
@@ -113,7 +113,7 @@ export function CastSelectionDetailPage(): ReactNode {
             {data.stickers.map((sticker) => (
               <div key={sticker.stickerTemplateId} className="w-16 shrink-0 text-center">
                 <img src={sticker.pictureUrl} alt={sticker.name} className="h-16 w-16 object-contain" />
-                <p className="text-[10px] text-gold-700">×{sticker.count}</p>
+                <p className="text-[10px] text-brand-700">×{sticker.count}</p>
               </div>
             ))}
           </div>

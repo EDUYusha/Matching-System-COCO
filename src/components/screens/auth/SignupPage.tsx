@@ -115,7 +115,7 @@ export function SignupPage({ showcase = false }: { showcase?: boolean }): ReactN
   return (
     <div className="px-6 py-8">
       <div className="mb-6 text-center">
-        <p className="text-2xl font-bold text-gold-700">{AN.Short}</p>
+        <p className="text-2xl font-bold text-brand-700">{AN.Short}</p>
         <h1 className="mt-1 text-sm font-semibold">ゲスト登録</h1>
       </div>
 
@@ -253,7 +253,7 @@ export function SignupPage({ showcase = false }: { showcase?: boolean }): ReactN
       </form>
 
       <p className="mt-6 text-center text-xs text-ink-500">
-        すでにアカウントをお持ちの方は <Link href="/">ログイン</Link>
+        すでにアカウントをお持ちの方は <Link href="/login">ログイン</Link>
       </p>
     </div>
   );

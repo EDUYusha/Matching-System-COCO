@@ -77,7 +77,7 @@ export function PayoutPage(): ReactNode {
           </div>
           <div className="flex justify-between border-t border-ink-200 pt-1.5">
             <dt className="text-ink-500">出金可能ポイント</dt>
-            <dd className="text-base font-bold text-gold-700">{numberToCredits(data.payableBalance)}</dd>
+            <dd className="text-base font-bold text-brand-700">{numberToCredits(data.payableBalance)}</dd>
           </div>
         </dl>
         <p className="mt-2 text-[10px] leading-relaxed text-ink-500">
@@ -114,7 +114,7 @@ export function PayoutPage(): ReactNode {
             {data.pendingRequests.map((request) => (
               <li key={request.id} className="px-4 py-3">
                 <div className="flex items-center justify-between">
-                  <span className="badge bg-gold-100 text-gold-700">
+                  <span className="badge bg-brand-100 text-brand-700">
                     {request.status === 'on_hold' ? '保留中' : request.fastPayout ? 'すぐ出金' : '申請済み'}
                   </span>
                   <span className="text-sm font-bold">{numberToYen(request.netAmount)}</span>
@@ -137,14 +137,14 @@ export function PayoutPage(): ReactNode {
             <div className="flex gap-2">
               <button
                 type="button"
-                className={`badge flex-1 py-2 ${mode === 'full' ? 'bg-gold-500 text-ink-900' : 'border border-ink-300 bg-white text-ink-700'}`}
+                className={`badge flex-1 py-2 ${mode === 'full' ? 'bg-brand-500 text-white' : 'border border-ink-300 bg-white text-ink-700'}`}
                 onClick={() => setMode('full')}
               >
                 全額
               </button>
               <button
                 type="button"
-                className={`badge flex-1 py-2 ${mode === 'partial' ? 'bg-gold-500 text-ink-900' : 'border border-ink-300 bg-white text-ink-700'}`}
+                className={`badge flex-1 py-2 ${mode === 'partial' ? 'bg-brand-500 text-white' : 'border border-ink-300 bg-white text-ink-700'}`}
                 onClick={() => setMode('partial')}
               >
                 金額を指定
@@ -177,7 +177,7 @@ export function PayoutPage(): ReactNode {
                 </div>
                 <div className="flex justify-between border-t border-ink-200 pt-1">
                   <dt className="text-ink-500">振込金額</dt>
-                  <dd className="font-bold text-gold-700">{numberToYen(Math.max(data.costs.netOut, 0))}</dd>
+                  <dd className="font-bold text-brand-700">{numberToYen(Math.max(data.costs.netOut, 0))}</dd>
                 </div>
               </dl>
             )}
@@ -206,7 +206,7 @@ export function PayoutPage(): ReactNode {
               </div>
               <div className="flex justify-between border-t border-ink-200 pt-1">
                 <dt className="text-ink-500">振込金額</dt>
-                <dd className="font-bold text-gold-700">{numberToYen(Math.max(data.fastCosts.netOut, 0))}</dd>
+                <dd className="font-bold text-brand-700">{numberToYen(Math.max(data.fastCosts.netOut, 0))}</dd>
               </div>
             </dl>
             <p className="text-[10px] text-ink-500">

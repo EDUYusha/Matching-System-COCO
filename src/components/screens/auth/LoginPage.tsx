@@ -69,7 +69,9 @@ export function LoginPage(): ReactNode {
   return (
     <div className="flex min-h-screen flex-col justify-center px-6 py-10">
       <div className="mb-8 text-center">
-        <p className="text-3xl font-bold tracking-wide text-gold-700">{AN.Short}</p>
+        <Link href="/" className="text-3xl font-bold tracking-wide text-brand-700 no-underline">
+          {AN.Short}
+        </Link>
         <p className="mt-1 text-xs text-ink-500">{AN.Full}</p>
       </div>
 
@@ -101,7 +103,14 @@ export function LoginPage(): ReactNode {
         </button>
       </form>
 
-      <button type="button" onClick={loginWithLine} className="btn mt-3 w-full bg-[#06c755] text-white hover:brightness-110">
+      {/* the theme's green matches LINE's, so the divider is what tells the two buttons apart */}
+      <div className="my-4 flex items-center gap-3 text-[11px] text-ink-500" aria-hidden>
+        <span className="h-px flex-1 bg-ink-200" />
+        または
+        <span className="h-px flex-1 bg-ink-200" />
+      </div>
+
+      <button type="button" onClick={loginWithLine} className="btn w-full bg-[#06c755] text-white hover:brightness-110">
         LINEでログイン
       </button>
 

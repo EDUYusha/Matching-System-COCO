@@ -304,14 +304,14 @@ export function OrderWizardPage(): ReactNode {
           <div className="mb-2 flex gap-2">
             <button
               type="button"
-              className={`badge flex-1 py-2 ${form.startMode === 'delay' ? 'bg-gold-500 text-ink-900' : 'border border-ink-300 bg-white text-ink-700'}`}
+              className={`badge flex-1 py-2 ${form.startMode === 'delay' ? 'bg-brand-500 text-white' : 'border border-ink-300 bg-white text-ink-700'}`}
               onClick={() => setForm({ ...form, startMode: 'delay' })}
             >
               今から
             </button>
             <button
               type="button"
-              className={`badge flex-1 py-2 ${form.startMode === 'absolute' ? 'bg-gold-500 text-ink-900' : 'border border-ink-300 bg-white text-ink-700'}`}
+              className={`badge flex-1 py-2 ${form.startMode === 'absolute' ? 'bg-brand-500 text-white' : 'border border-ink-300 bg-white text-ink-700'}`}
               onClick={() => setForm({ ...form, startMode: 'absolute' })}
             >
               日時を指定
@@ -368,7 +368,7 @@ export function OrderWizardPage(): ReactNode {
                           : [...form.meetingPrefs, preference.id],
                       })
                     }
-                    className={`badge px-2.5 py-1.5 ${active ? 'bg-gold-500 text-ink-900' : 'border border-ink-300 bg-white text-ink-700'}`}
+                    className={`badge px-2.5 py-1.5 ${active ? 'bg-brand-500 text-white' : 'border border-ink-300 bg-white text-ink-700'}`}
                   >
                     {preference.name}
                   </button>
@@ -395,9 +395,9 @@ export function OrderWizardPage(): ReactNode {
           匿名でオーダーする
         </label>
 
-        <div className="card border-gold-300 bg-gold-50">
+        <div className="card border-brand-300 bg-brand-50">
           <p className="text-xs text-ink-700">
-            概算料金 <span className="text-base font-bold text-gold-700">{numberToCredits(localEstimate)}</span>
+            概算料金 <span className="text-base font-bold text-brand-700">{numberToCredits(localEstimate)}</span>
           </p>
           <p className="mt-0.5 text-[10px] text-ink-500">
             深夜（{config.night_interval.start}〜{config.night_interval.end}）にかかる場合は深夜手当

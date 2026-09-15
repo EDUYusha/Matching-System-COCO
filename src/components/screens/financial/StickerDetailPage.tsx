@@ -64,7 +64,7 @@ export function StickerDetailPage(): ReactNode {
         {sticker.creditedAmount !== null ? (
           <div className="flex gap-3 px-4 py-3">
             <dt className="w-20 shrink-0 text-xs text-ink-500">獲得ポイント</dt>
-            <dd className="flex-1 text-sm font-semibold text-gold-700">{numberToCredits(sticker.creditedAmount)}</dd>
+            <dd className="flex-1 text-sm font-semibold text-brand-700">{numberToCredits(sticker.creditedAmount)}</dd>
           </div>
         ) : null}
       </dl>

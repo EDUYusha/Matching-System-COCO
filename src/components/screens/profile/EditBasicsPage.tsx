@@ -109,7 +109,7 @@ export function EditBasicsPage(): ReactNode {
             <div key={picture.id} className="relative">
               <img src={picture.url} alt="" className="aspect-square w-full rounded-lg object-cover" />
               {picture.profilePic ? (
-                <span className="absolute left-1 top-1 badge bg-gold-500 text-ink-900">メイン</span>
+                <span className="absolute left-1 top-1 badge bg-brand-500 text-white">メイン</span>
               ) : (
                 <button
                   type="button"

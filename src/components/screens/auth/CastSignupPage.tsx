@@ -100,7 +100,7 @@ export function CastSignupPage({ showcase = false }: { showcase?: boolean }): Re
   return (
     <div className="px-6 py-8">
       <div className="mb-6 text-center">
-        <p className="text-2xl font-bold text-gold-700">{AN.Short}</p>
+        <p className="text-2xl font-bold text-brand-700">{AN.Short}</p>
         <h1 className="mt-1 text-sm font-semibold">キャスト登録</h1>
         <p className="mt-2 text-[11px] leading-relaxed text-ink-500">
           ご登録後、顔写真付きの身分証明書をご提出いただくと本登録となります。
@@ -109,7 +109,7 @@ export function CastSignupPage({ showcase = false }: { showcase?: boolean }): Re
 
       {showcase ? (
         <div className="card mb-6 text-xs leading-relaxed text-ink-700">
-          <p className="mb-1 font-semibold text-gold-700">キャストとして活動するには</p>
+          <p className="mb-1 font-semibold text-brand-700">キャストとして活動するには</p>
           <ol className="list-inside list-decimal space-y-1">
             <li>アカウントを作成</li>
             <li>顔写真付きの身分証明書をアップロード</li>
@@ -229,7 +229,7 @@ export function CastSignupPage({ showcase = false }: { showcase?: boolean }): Re
       </form>
 
       <p className="mt-6 text-center text-xs text-ink-500">
-        すでにアカウントをお持ちの方は <Link href="/">ログイン</Link>
+        すでにアカウントをお持ちの方は <Link href="/login">ログイン</Link>
       </p>
     </div>
   );

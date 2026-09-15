@@ -68,7 +68,7 @@ export function NotificationSettingsPage(): ReactNode {
                 role="switch"
                 aria-checked={form[key]}
                 onClick={() => setForm({ ...form, [key]: !form[key] })}
-                className={`mt-0.5 h-6 w-11 shrink-0 rounded-full transition ${form[key] ? 'bg-gold-500' : 'bg-ink-200'}`}
+                className={`mt-0.5 h-6 w-11 shrink-0 rounded-full transition ${form[key] ? 'bg-brand-500' : 'bg-ink-200'}`}
               >
                 <span
                   className={`block h-5 w-5 rounded-full bg-white transition ${form[key] ? 'translate-x-5' : 'translate-x-0.5'}`}

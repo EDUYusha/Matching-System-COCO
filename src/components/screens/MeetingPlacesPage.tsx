@@ -73,7 +73,7 @@ export function MeetingPlacesPage(): ReactNode {
                   setTagIds(active ? tagIds.filter((id) => id !== tag.id) : [...tagIds, tag.id]);
                   setPage(1);
                 }}
-                className={`badge px-2.5 py-1 ${active ? 'bg-gold-500 text-ink-900' : 'border border-ink-300 bg-white text-ink-700'}`}
+                className={`badge px-2.5 py-1 ${active ? 'bg-brand-500 text-white' : 'border border-ink-300 bg-white text-ink-700'}`}
               >
                 {tag.name}
               </button>

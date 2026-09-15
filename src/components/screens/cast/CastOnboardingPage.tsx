@@ -68,12 +68,12 @@ export function CastOnboardingPage(): ReactNode {
                 <div className="flex items-center gap-2">
                   <span
                     className={`-ml-[26px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] ${
-                      done ? 'bg-gold-500 text-ink-900' : 'border border-ink-300 bg-paper-100 text-ink-500'
+                      done ? 'bg-brand-500 text-white' : 'border border-ink-300 bg-paper-100 text-ink-500'
                     }`}
                   >
                     {done ? '✓' : stepIndex - 1}
                   </span>
-                  <p className={`text-sm ${current ? 'font-bold text-gold-700' : done ? 'text-ink-700' : 'text-ink-500'}`}>
+                  <p className={`text-sm ${current ? 'font-bold text-brand-700' : done ? 'text-ink-700' : 'text-ink-500'}`}>
                     {step.label}
                   </p>
                 </div>

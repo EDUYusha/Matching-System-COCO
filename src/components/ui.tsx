@@ -4,14 +4,14 @@ import clsx from 'clsx';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { LevelRef } from '@/lib';
+import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from '@/components/icons';
 
 /**
- * The small pieces every screen reuses, on the light theme.
+ * The small pieces every screen reuses, in the LINE-style theme.
  *
- * Where v2 leaned on a dark ground to separate surfaces, this build separates
- * them with a hairline and a soft shadow instead — the card class in
- * globals.css. Text sits at ink-700/800 on paper, and the gold is used for
- * emphasis rather than as a background wash, so it keeps its weight.
+ * Surfaces are white and flat, separated by hairlines rather than shadows.
+ * Text sits at ink-800/900, secondary text at ink-500, and the green is kept
+ * for actions and unread marks so it stays meaningful.
  */
 
 export function Spinner({ className }: { className?: string }): ReactNode {
@@ -37,9 +37,9 @@ export function PageLoading(): ReactNode {
 
 export function EmptyState({ title, hint }: { title: string; hint?: string }): ReactNode {
   return (
-    <div className="px-6 py-14 text-center">
-      <p className="text-sm text-ink-500">{title}</p>
-      {hint ? <p className="mt-1 text-xs text-ink-400">{hint}</p> : null}
+    <div className="px-6 py-16 text-center">
+      <p className="text-sm font-bold text-ink-600">{title}</p>
+      {hint ? <p className="mt-1.5 text-xs leading-relaxed text-ink-500">{hint}</p> : null}
     </div>
   );
 }
@@ -57,33 +57,60 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
   );
 }
 
+/**
+ * The screen header, in LINE's two forms: a tab's root screen puts a large
+ * title on the left, and a pushed screen centres its title between a back
+ * chevron and its action. The `chat` tone blends the header into the talk
+ * room's wallpaper.
+ */
 export function PageHeader({
   title,
   subtitle,
   action,
   back,
+  tone = 'default',
 }: {
   title: string;
   subtitle?: string;
   action?: ReactNode;
   back?: string;
+  tone?: 'default' | 'chat';
 }): ReactNode {
+  const surface = tone === 'chat' ? 'bg-chat-wall/95' : 'bg-white/95';
+
+  if (!back) {
+    return (
+      <header className={clsx('sticky top-0 z-20 flex min-h-14 items-center gap-2 px-4 py-2 backdrop-blur', surface)}>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-xl font-bold text-ink-900">{title}</h1>
+          {subtitle ? <p className="truncate text-xs text-ink-500">{subtitle}</p> : null}
+        </div>
+        {action}
+      </header>
+    );
+  }
+
   return (
-    <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-ink-200/70 bg-paper-100/90 px-4 py-3 backdrop-blur">
-      {back ? (
-        <Link
-          href={back}
-          className="-ml-1 rounded-lg px-2 py-1 text-lg leading-none text-ink-500 no-underline hover:bg-ink-100"
-          aria-label="戻る"
-        >
-          ‹
-        </Link>
-      ) : null}
-      <div className="min-w-0 flex-1">
+    <header
+      className={clsx(
+        'sticky top-0 z-20 flex min-h-12 items-center gap-1 px-1.5 py-1 backdrop-blur',
+        tone === 'chat' ? surface : clsx(surface, 'border-b border-ink-200'),
+      )}
+    >
+      <Link
+        href={back}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-900 no-underline hover:bg-black/5"
+        aria-label="戻る"
+      >
+        <ChevronLeftIcon className="h-6 w-6" strokeWidth={2.2} />
+      </Link>
+      <div className="min-w-0 flex-1 text-center">
         <h1 className="truncate text-base font-bold text-ink-900">{title}</h1>
-        {subtitle ? <p className="truncate text-xs text-ink-500">{subtitle}</p> : null}
+        {subtitle ? (
+          <p className={clsx('truncate text-[11px]', tone === 'chat' ? 'text-ink-800' : 'text-ink-500')}>{subtitle}</p>
+        ) : null}
       </div>
-      {action}
+      <div className="flex min-w-10 shrink-0 items-center justify-end pr-1.5">{action}</div>
     </header>
   );
 }
@@ -95,7 +122,7 @@ export function LevelBadge({ level }: { level: LevelRef | null }): ReactNode {
   return (
     <span
       className="badge"
-      // the stored colours were picked for a dark ground, so on paper they get a
+      // the stored colours were picked for a dark ground, so on white they get a
       // tinted pill with a full-strength border and darkened text
       style={{ backgroundColor: `${color}1f`, color: shade(color), border: `1px solid ${color}80` }}
     >
@@ -144,21 +171,34 @@ export function Avatar({
           const image = event.currentTarget;
           if (!image.src.endsWith(NO_IMAGE)) image.src = NO_IMAGE;
         }}
-        className={clsx(dimension, 'rounded-full border border-ink-200 bg-ink-50 object-cover')}
+        className={clsx(dimension, 'block rounded-full bg-ink-100 object-cover')}
       />
       {online ? (
-        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-brand-500" />
       ) : null}
     </span>
   );
 }
 
-export function Counter({ count, className }: { count: number; className?: string }): ReactNode {
+/**
+ * An unread count. Red on the tab bar, as LINE marks a tab; green beside a
+ * talk in the list.
+ */
+export function Counter({
+  count,
+  className,
+  tone = 'red',
+}: {
+  count: number;
+  className?: string;
+  tone?: 'red' | 'brand';
+}): ReactNode {
   if (count <= 0) return null;
   return (
     <span
       className={clsx(
-        'inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white',
+        'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none text-white',
+        tone === 'brand' ? 'bg-brand-500' : 'bg-red-500',
         className,
       )}
     >
@@ -182,7 +222,7 @@ export function Field({
     <label className="block">
       <span className="label">{label}</span>
       {children}
-      {hint ? <span className="mt-1 block text-[11px] text-ink-400">{hint}</span> : null}
+      {hint ? <span className="mt-1 block text-[11px] text-ink-500">{hint}</span> : null}
       {error?.length ? <span className="mt-1 block text-[11px] text-red-600">{error.join(' / ')}</span> : null}
     </label>
   );
@@ -197,6 +237,11 @@ export function RichText({ html, className }: { html: string; className?: string
   return <div className={clsx('system-message', className)} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
+/**
+ * Underlined tabs that share the width, with a dark bar under the active one.
+ * Each tab keeps at least its label's width, so a long set scrolls sideways
+ * instead of clipping the last label.
+ */
 export function Tabs<T extends string>({
   tabs,
   active,
@@ -207,17 +252,19 @@ export function Tabs<T extends string>({
   onChange: (value: T) => void;
 }): ReactNode {
   return (
-    <div className="no-scrollbar flex gap-1 overflow-x-auto border-b border-ink-200/70 bg-white px-2">
+    <div className="no-scrollbar flex overflow-x-auto border-b border-ink-200 bg-white px-2" role="tablist">
       {tabs.map((tab) => (
         <button
           key={tab.value}
           type="button"
+          role="tab"
+          aria-selected={active === tab.value}
           onClick={() => onChange(tab.value)}
           className={clsx(
-            'flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-bold transition',
+            'relative flex flex-auto shrink-0 items-center justify-center gap-1.5 whitespace-nowrap px-3 py-3 text-sm transition',
             active === tab.value
-              ? 'border-gold-500 text-gold-700'
-              : 'border-transparent text-ink-400 hover:text-ink-700',
+              ? 'font-bold text-ink-900 after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-ink-900'
+              : 'text-ink-500 hover:text-ink-800',
           )}
         >
           {tab.label}
@@ -228,6 +275,7 @@ export function Tabs<T extends string>({
   );
 }
 
+/** A bottom sheet on a phone, a centred dialog on a wider screen. */
 export function Modal({
   open,
   onClose,
@@ -243,21 +291,29 @@ export function Modal({
 }): ReactNode {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink-900/40 p-0 backdrop-blur-[2px] sm:items-center sm:p-4">
-      <div className="max-h-[85vh] w-full max-w-app overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
-        <div className="sticky top-0 flex items-center justify-between border-b border-ink-200/70 bg-white px-4 py-3">
-          <h2 className="text-sm font-bold">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1 text-ink-400 hover:bg-ink-100"
-            aria-label="閉じる"
-          >
-            ✕
-          </button>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+      <div
+        className="max-h-[85vh] w-full max-w-app overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
+        <div className="sticky top-0 z-10 bg-white">
+          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink-200 sm:hidden" aria-hidden />
+          <div className="relative flex items-center justify-center px-12 py-3">
+            <h2 className="truncate text-[15px] font-bold">{title}</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-ink-500 hover:bg-ink-100"
+              aria-label="閉じる"
+            >
+              <CloseIcon className="h-5 w-5" strokeWidth={2} />
+            </button>
+          </div>
         </div>
-        <div className="p-4">{children}</div>
-        {footer ? <div className="sticky bottom-0 border-t border-ink-200/70 bg-white p-4">{footer}</div> : null}
+        <div className="px-4 pb-4 pt-1">{children}</div>
+        {footer ? <div className="sticky bottom-0 border-t border-ink-200 bg-white p-4">{footer}</div> : null}
       </div>
     </div>
   );
@@ -274,25 +330,27 @@ export function Pagination({
 }): ReactNode {
   if (totalPages <= 1) return null;
   return (
-    <nav className="flex items-center justify-center gap-2 py-5">
+    <nav className="flex items-center justify-center gap-3 py-5">
       <button
         type="button"
-        className="btn-secondary px-3 py-1.5"
+        className="btn-secondary h-9 w-9 rounded-full p-0"
         disabled={page <= 1}
         onClick={() => onChange(page - 1)}
+        aria-label="前のページ"
       >
-        &lt;
+        <ChevronLeftIcon className="h-4 w-4" strokeWidth={2.2} />
       </button>
       <span className="text-xs text-ink-500">
         {page} / {totalPages}
       </span>
       <button
         type="button"
-        className="btn-secondary px-3 py-1.5"
+        className="btn-secondary h-9 w-9 rounded-full p-0"
         disabled={page >= totalPages}
         onClick={() => onChange(page + 1)}
+        aria-label="次のページ"
       >
-        &gt;
+        <ChevronRightIcon className="h-4 w-4" strokeWidth={2.2} />
       </button>
     </nav>
   );

@@ -59,7 +59,7 @@ export function SelectFriendsPage(): ReactNode {
                 >
                   <Avatar src={friend.profilePicUrl} alt={friend.nickName} />
                   <span className="min-w-0 flex-1 truncate text-sm">{friend.nickName}</span>
-                  <span className={`text-xl ${active ? 'text-gold-700' : 'text-ink-600'}`}>{active ? '☑' : '☐'}</span>
+                  <span className={`text-xl ${active ? 'text-brand-700' : 'text-ink-600'}`}>{active ? '☑' : '☐'}</span>
                 </button>
               </li>
             );

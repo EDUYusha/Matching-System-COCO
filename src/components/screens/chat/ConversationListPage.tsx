@@ -1,16 +1,34 @@
 'use client';
 
 import Link from 'next/link';
+import clsx from 'clsx';
 import { useState, type ReactNode } from 'react';
 import type { ConversationSummary, Paginated } from '@/lib';
-import { formatRelative } from '@/client/format';
+import { formatTalkTime } from '@/client/format';
 import { api } from '@/client/api';
 import { useApiQuery } from '@/client/hooks';
-import { Counter, EmptyState, PageHeader, PageLoading, Pagination, Tabs } from '@/components/ui';
+import { SearchIcon } from '@/components/icons';
+import { Avatar, Counter, EmptyState, PageHeader, PageLoading, Pagination } from '@/components/ui';
 
-/** ConversationsController#index and #search. */
+const FILTERS = [
+  { value: 'all', label: 'すべて' },
+  { value: 'meetings', label: 'オーダー' },
+] as const;
+
+/** The room types that get a label beside the name; a private room needs none. */
+const CATEGORY_LABELS: Partial<Record<ConversationSummary['category'], { label: string; className: string }>> = {
+  admin: { label: '運営', className: 'bg-brand-50 text-brand-700' },
+  system: { label: 'お知らせ', className: 'bg-ink-100 text-ink-600' },
+  meeting: { label: 'オーダー', className: 'bg-sky-50 text-sky-700' },
+};
+
+/**
+ * ConversationsController#index and #search, laid out as LINE's talk list: a
+ * search pill and filter chips on top, then one row per room with the time
+ * and a green unread count on the right.
+ */
 export function ConversationListPage(): ReactNode {
-  const [tab, setTab] = useState<'all' | 'meetings'>('all');
+  const [tab, setTab] = useState<(typeof FILTERS)[number]['value']>('all');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [searching, setSearching] = useState(false);
@@ -44,69 +62,84 @@ export function ConversationListPage(): ReactNode {
     <div>
       <PageHeader title="チャット" />
 
-      <div className="px-4 py-3">
-        <input
-          className="input"
-          placeholder="相手の名前で検索（3文字以上）"
-          value={search}
-          onChange={(event) => void runSearch(event.target.value)}
-        />
+      <div className="px-4 pb-2">
+        <label className="relative block">
+          <span className="sr-only">相手の名前で検索</span>
+          <SearchIcon
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500"
+            strokeWidth={2.2}
+          />
+          <input
+            type="search"
+            className="input rounded-full py-2 pl-9 text-sm"
+            placeholder="相手の名前で検索（3文字以上）"
+            value={search}
+            onChange={(event) => void runSearch(event.target.value)}
+          />
+        </label>
       </div>
 
       {results === null ? (
-        <Tabs
-          tabs={[
-            { value: 'all', label: 'すべて' },
-            { value: 'meetings', label: 'オーダー' },
-          ]}
-          active={tab}
-          onChange={(value) => {
-            setTab(value);
-            setPage(1);
-          }}
-        />
+        <div className="flex gap-2 px-4 pb-2 pt-1">
+          {FILTERS.map((filter) => (
+            <button
+              key={filter.value}
+              type="button"
+              aria-pressed={tab === filter.value}
+              onClick={() => {
+                setTab(filter.value);
+                setPage(1);
+              }}
+              className={clsx(
+                'rounded-full px-3.5 py-1.5 text-[13px] font-bold transition',
+                tab === filter.value ? 'bg-ink-900 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200',
+              )}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
       ) : null}
 
       {isLoading || searching ? (
         <PageLoading />
       ) : items.length ? (
-        <ul className="divide-y divide-ink-200">
-          {items.map((conversation) => (
-            <li key={conversation.id}>
-              <Link
-                href={`/conversations/${conversation.id}`}
-                className="flex items-center gap-3 px-4 py-3 no-underline hover:bg-ink-50"
-              >
-                <img
-                  src={conversation.partner?.profilePicUrl ?? conversation.pictureUrl ?? '/system/noimage.png'}
-                  alt=""
-                  className="h-12 w-12 shrink-0 rounded-full border border-ink-300 object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="truncate text-sm font-semibold text-ink-900">
-                      {conversation.partner?.nickName ?? conversation.name}
-                    </p>
-                    {conversation.category === 'admin' ? (
-                      <span className="badge bg-gold-100 text-gold-700">運営</span>
-                    ) : conversation.category === 'system' ? (
-                      <span className="badge bg-ink-200 text-ink-900">お知らせ</span>
-                    ) : conversation.category === 'meeting' ? (
-                      <span className="badge bg-purple-500/20 text-purple-300">オーダー</span>
-                    ) : null}
+        <ul className="pb-2">
+          {items.map((conversation) => {
+            const category = CATEGORY_LABELS[conversation.category];
+            return (
+              <li key={conversation.id}>
+                <Link
+                  href={`/conversations/${conversation.id}`}
+                  className="flex items-center gap-3 px-4 py-2.5 no-underline hover:bg-ink-50 active:bg-ink-100"
+                >
+                  <Avatar src={conversation.partner?.profilePicUrl ?? conversation.pictureUrl} alt="" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="min-w-0 truncate text-[15px] font-bold text-ink-900">
+                        {conversation.partner?.nickName ?? conversation.name}
+                      </p>
+                      {category ? (
+                        <span className={clsx('badge shrink-0 px-1.5 text-[10px]', category.className)}>
+                          {category.label}
+                        </span>
+                      ) : null}
+                      <span className="ml-auto shrink-0 pl-1 text-[11px] text-ink-500">
+                        {formatTalkTime(conversation.updatedAt)}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <p className="min-w-0 flex-1 truncate text-[13px] text-ink-500">
+                        {conversation.lastSenderName ? `${conversation.lastSenderName}: ` : ''}
+                        {conversation.lastContent ?? 'メッセージはまだありません'}
+                      </p>
+                      <Counter count={conversation.unreadCount} tone="brand" />
+                    </div>
                   </div>
-                  <p className="truncate text-[11px] text-ink-500">
-                    {conversation.lastSenderName ? `${conversation.lastSenderName}: ` : ''}
-                    {conversation.lastContent ?? 'メッセージはまだありません'}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <span className="text-[10px] text-ink-500">{formatRelative(conversation.updatedAt)}</span>
-                  <Counter count={conversation.unreadCount} />
-                </div>
-              </Link>
-            </li>
-          ))}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <EmptyState

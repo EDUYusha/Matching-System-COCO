@@ -10,6 +10,7 @@ import { l, numberToCredits } from '@/client/format';
 import { api } from '@/client/api';
 import { useApiQuery } from '@/client/hooks';
 import { useAppStore, useCurrentUser } from '@/client/store';
+import { ChevronRightIcon } from '@/components/icons';
 import { Avatar, LevelBadge, PageHeader, PageLoading, RichText } from '@/components/ui';
 
 interface SettingsResponse {
@@ -20,7 +21,10 @@ interface SettingsResponse {
   serviceMessages: ServiceMessageDto[];
 }
 
-/** UsersController#settings — my page. */
+/**
+ * UsersController#settings — my page, laid out as LINE's settings: white
+ * groups of rows on a grey ground, each group under a small grey heading.
+ */
 export function SettingsPage(): ReactNode {
   const user = useCurrentUser();
   const router = useRouter();
@@ -55,132 +59,123 @@ export function SettingsPage(): ReactNode {
       ];
 
   return (
-    <div>
+    <div className="min-h-full bg-paper-200 pb-2">
       <PageHeader title="マイページ" />
 
-      <div className="flex items-center gap-3 px-4 py-4">
-        <Link href="/profile" className="shrink-0 no-underline">
-          <Avatar src={user.profilePicUrl} alt={user.nickName} size="lg" />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-bold">{user.nickName}</p>
-          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-500">
-            <LevelBadge level={user.castLevel ?? user.customerLevel} />
-            {user.guestTitle ? <span className="badge bg-gold-100 text-gold-700">{user.guestTitle}</span> : null}
-            {user.businessAreaName ? <span>{user.businessAreaName}</span> : null}
+      <div className="bg-white px-4 pb-4 pt-1">
+        <div className="flex items-center gap-3">
+          <Link href="/profile" className="shrink-0 no-underline">
+            <Avatar src={user.profilePicUrl} alt={user.nickName} size="lg" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-lg font-bold text-ink-900">{user.nickName}</p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-500">
+              <LevelBadge level={user.castLevel ?? user.customerLevel} />
+              {user.guestTitle ? <span className="badge bg-brand-50 text-brand-700">{user.guestTitle}</span> : null}
+              {user.businessAreaName ? <span>{user.businessAreaName}</span> : null}
+            </div>
           </div>
+          <Link href="/profile" className="btn-secondary shrink-0 rounded-full px-3.5 py-1.5 text-xs no-underline">
+            プロフィール
+          </Link>
         </div>
-        <Link href="/profile" className="btn-secondary shrink-0 px-3 py-1.5 text-xs no-underline">
-          プロフィール
-        </Link>
-      </div>
 
-      <div className="mx-4 card border-gold-300 bg-gold-50">
-        <p className="text-[11px] text-ink-500">{user.permissions.cast ? '獲得ポイント' : '保有ポイント'}</p>
-        <p className="text-2xl font-bold text-gold-700">{numberToCredits(user.creditBalance)}</p>
-        {user.frozenCredits > 0 ? (
-          <p className="text-[11px] text-ink-500">（うち {numberToCredits(user.frozenCredits)} は予約中）</p>
-        ) : null}
+        <div className="mt-4 rounded-2xl bg-brand-50 px-4 py-3">
+          <p className="text-[11px] font-bold text-brand-800">{user.permissions.cast ? '獲得ポイント' : '保有ポイント'}</p>
+          <p className="text-2xl font-bold text-ink-900">{numberToCredits(user.creditBalance)}</p>
+          {user.frozenCredits > 0 ? (
+            <p className="text-[11px] text-ink-600">（うち {numberToCredits(user.frozenCredits)} は予約中）</p>
+          ) : null}
+        </div>
       </div>
 
       {data?.serviceMessages.length ? (
-        <section>
-          <h2 className="section-title">運営局からのお知らせ</h2>
-          <ul className="divide-y divide-ink-200 border-y border-ink-200">
+        <section className="mt-2 bg-white">
+          <h2 className="section-title pt-3">運営局からのお知らせ</h2>
+          <ul className="divide-y divide-ink-100">
             {data.serviceMessages.map((message) => (
               <li key={message.id} className="px-4 py-3">
                 <div className="flex items-center gap-2">
-                  {message.unread ? <span className="h-1.5 w-1.5 rounded-full bg-gold-500" /> : null}
-                  <p className="text-sm font-semibold">{message.title ?? 'お知らせ'}</p>
-                  <span className="ml-auto text-[10px] text-ink-500">{l(message.createdAt)}</span>
+                  {message.unread ? <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" /> : null}
+                  <p className="min-w-0 truncate text-sm font-bold">{message.title ?? 'お知らせ'}</p>
+                  <span className="ml-auto shrink-0 text-[10px] text-ink-500">{l(message.createdAt)}</span>
                 </div>
                 {message.content ? (
-                  <RichText html={message.content} className="mt-1 text-[11px] leading-relaxed text-ink-700" />
+                  <RichText html={message.content} className="mt-1 text-[12px] leading-relaxed text-ink-600" />
                 ) : null}
               </li>
             ))}
           </ul>
-          <div className="px-4 py-2">
-            <Link href="/service_messages" className="text-[11px]">
-              すべてのお知らせを見る
-            </Link>
-          </div>
+          <SettingsRow to="/service_messages" label="すべてのお知らせを見る" />
         </section>
       ) : null}
 
-      <SettingsGroup
-        title={user.permissions.cast ? '売上・出金' : 'ポイント'}
-        links={moneyLinks}
-      />
+      <SettingsGroup title={user.permissions.cast ? '売上・出金' : 'ポイント'} links={moneyLinks} />
 
       {/* the 師弟 (master/apprentice) relationship, from RewardPatron */}
       {data?.patron ? (
-        <section>
-          <h2 className="section-title">師匠</h2>
+        <section className="mt-2 bg-white">
+          <h2 className="section-title pt-3">師匠</h2>
           <Link
             href={`/profiles/${data.patron.id}`}
-            className="flex items-center gap-3 border-y border-ink-200 px-4 py-3 no-underline"
+            className="flex items-center gap-3 px-4 py-3 no-underline hover:bg-ink-50"
           >
             <Avatar src={data.patron.profilePicUrl} alt={data.patron.nickName} size="sm" />
-            <span className="min-w-0 flex-1 truncate text-sm">{data.patron.nickName}</span>
-            <span className="text-ink-500">›</span>
+            <span className="min-w-0 flex-1 truncate text-[15px] text-ink-900">{data.patron.nickName}</span>
+            <ChevronRightIcon className="h-4 w-4 text-ink-400" strokeWidth={2.2} />
           </Link>
         </section>
       ) : null}
 
       {data?.patronizedCast.length ? (
-        <section>
-          <h2 className="section-title">弟子キャスト（{data.patronizedCast.length}名）</h2>
+        <section className="mt-2 bg-white">
+          <h2 className="section-title pt-3">弟子キャスト（{data.patronizedCast.length}名）</h2>
           <div className="no-scrollbar flex gap-3 overflow-x-auto px-4 pb-3">
             {data.patronizedCast.map((cast) => (
               <Link key={cast.id} href={`/profiles/${cast.id}`} className="w-16 shrink-0 text-center no-underline">
                 <Avatar src={cast.profilePicUrl} alt={cast.nickName} size="lg" />
-                <p className="mt-1 truncate text-[10px]">{cast.nickName}</p>
+                <p className="mt-1 truncate text-[11px] text-ink-800">{cast.nickName}</p>
               </Link>
             ))}
           </div>
-          <p className="px-4 pb-2 text-[10px] text-ink-500">
+          <p className="px-4 pb-3 text-[11px] text-ink-500">
             弟子キャストがオーダーを実施すると、獲得ポイントの3.0%が付与されます。
           </p>
         </section>
       ) : null}
 
       {data?.firstCustomers.length ? (
-        <section>
-          <h2 className="section-title">初個TOLAのゲスト（{data.firstCustomers.length}名）</h2>
+        <section className="mt-2 bg-white">
+          <h2 className="section-title pt-3">初個TOLAのゲスト（{data.firstCustomers.length}名）</h2>
           <div className="no-scrollbar flex gap-3 overflow-x-auto px-4 pb-3">
             {data.firstCustomers.map((guest) => (
               <Link key={guest.id} href={`/profiles/${guest.id}`} className="w-16 shrink-0 text-center no-underline">
                 <Avatar src={guest.profilePicUrl} alt={guest.nickName} size="lg" />
-                <p className="mt-1 truncate text-[10px]">{guest.nickName}</p>
+                <p className="mt-1 truncate text-[11px] text-ink-800">{guest.nickName}</p>
               </Link>
             ))}
           </div>
         </section>
       ) : null}
 
-      <section>
-        <h2 className="section-title">友達を紹介する</h2>
-        <div className="px-4 pb-3">
-          <div className="card">
-            <p className="text-[11px] text-ink-500">あなたの紹介者コード</p>
-            <p className="mt-0.5 font-mono text-xl tracking-widest text-gold-700">{user.invitationCode}</p>
-            <button
-              type="button"
-              className="btn-secondary mt-3 w-full"
-              onClick={() => {
-                void navigator.clipboard.writeText(invitationUrl);
-                pushToast({ type: 'success', message: '紹介リンクをコピーしました。' });
-              }}
-            >
-              紹介リンクをコピー
-            </button>
-            <p className="mt-2 text-[10px] leading-relaxed text-ink-500">
-              紹介したゲストにはお試しポイント{config.customer_start_credits_invited}Pが付与され、
-              ご利用のたびに紹介ポイントが還元されます。
-            </p>
-          </div>
-        </div>
+      <section className="mt-2 bg-white px-4 pb-4">
+        <h2 className="section-title px-0 pt-3">友達を紹介する</h2>
+        <p className="text-[11px] text-ink-500">あなたの紹介者コード</p>
+        <p className="mt-0.5 font-mono text-xl tracking-widest text-ink-900">{user.invitationCode}</p>
+        <button
+          type="button"
+          className="btn-primary mt-3 w-full"
+          onClick={() => {
+            void navigator.clipboard.writeText(invitationUrl);
+            pushToast({ type: 'success', message: '紹介リンクをコピーしました。' });
+          }}
+        >
+          紹介リンクをコピー
+        </button>
+        <p className="mt-2 text-[11px] leading-relaxed text-ink-500">
+          紹介したゲストにはお試しポイント{config.customer_start_credits_invited}Pが付与され、
+          ご利用のたびに紹介ポイントが還元されます。
+        </p>
       </section>
 
       <SettingsGroup
@@ -218,16 +213,21 @@ export function SettingsPage(): ReactNode {
         ]}
       />
 
-      <div className="px-4 py-6">
-        <button type="button" className="btn-secondary w-full" onClick={() => void logout()}>
+      <div className="mt-2 bg-white">
+        <button
+          type="button"
+          className="block w-full px-4 py-3.5 text-left text-[15px] text-red-600 hover:bg-ink-50"
+          onClick={() => void logout()}
+        >
           ログアウト
         </button>
-        <p className="mt-4 text-center text-[10px] text-ink-500">
-          {AN.Full}
-          <br />
-          {AN.Company}
-        </p>
       </div>
+
+      <p className="px-4 py-5 text-center text-[10px] text-ink-500">
+        {AN.Full}
+        <br />
+        {AN.Company}
+      </p>
     </div>
   );
 }
@@ -240,18 +240,24 @@ function SettingsGroup({
   links: Array<{ to: string; label: string }>;
 }): ReactNode {
   return (
-    <section>
-      <h2 className="section-title">{title}</h2>
-      <ul className="divide-y divide-ink-200 border-y border-ink-200">
+    <section className="mt-2 bg-white">
+      <h2 className="section-title pt-3">{title}</h2>
+      <ul className="divide-y divide-ink-100">
         {links.map((link) => (
           <li key={link.to}>
-            <Link href={link.to} className="flex items-center px-4 py-3.5 text-sm no-underline hover:bg-ink-50">
-              <span className="flex-1 text-ink-900">{link.label}</span>
-              <span className="text-ink-500">›</span>
-            </Link>
+            <SettingsRow to={link.to} label={link.label} />
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+function SettingsRow({ to, label }: { to: string; label: string }): ReactNode {
+  return (
+    <Link href={to} className="flex items-center px-4 py-3.5 no-underline hover:bg-ink-50">
+      <span className="flex-1 text-[15px] text-ink-900">{label}</span>
+      <ChevronRightIcon className="h-4 w-4 text-ink-400" strokeWidth={2.2} />
+    </Link>
   );
 }

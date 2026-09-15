@@ -23,7 +23,7 @@ export const POST = route(async (request) => {
       ...(body.restorationToken ? { restorationToken: body.restorationToken } : {}),
     },
   });
-  if (!user) throw new AppError('無効なリマインドトークンです。', { redirect: '/' });
+  if (!user) throw new AppError('無効なリマインドトークンです。', { redirect: '/login' });
 
   if (body.password.length < 6) {
     throw new AppError('パスワードは6文字以上で入力してください');
@@ -39,7 +39,7 @@ export const POST = route(async (request) => {
 
   return {
     ok: true,
-    redirect: '/',
+    redirect: '/login',
     flash: {
       type: 'notice',
       message: 'パスワードを更新しました。ログインページよりログインしてご利用いただけます。',

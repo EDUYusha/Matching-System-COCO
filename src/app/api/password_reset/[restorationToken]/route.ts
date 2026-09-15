@@ -12,14 +12,14 @@ export const GET = route<{ restorationToken: string }>(async (_request, { params
   });
 
   if (!user) {
-    throw new AppError('無効なリマインドトークンです。', { redirect: '/' });
+    throw new AppError('無効なリマインドトークンです。', { redirect: '/login' });
   }
   // the original reuses last_activity as the token's issue time
   if (!user.lastActivity || user.lastActivity.getTime() < Date.now() - 2 * 60 * 60 * 1000) {
     await prisma.user.update({ where: { id: user.id }, data: { restorationToken: null } });
     throw new AppError(
       'リンクは有効期限が切れております。パスワード再設定を最初からお試しください。',
-      { redirect: '/' },
+      { redirect: '/login' },
     );
   }
 

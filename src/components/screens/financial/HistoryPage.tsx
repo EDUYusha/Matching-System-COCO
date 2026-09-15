@@ -61,7 +61,7 @@ export function HistoryPage(): ReactNode {
                 {row.creditConversionId && row.total < 0 === false && row.category === 'charge' ? (
                   <button
                     type="button"
-                    className="text-gold-700"
+                    className="text-brand-700"
                     onClick={() => api.download(`/financial/receipts/${row.creditConversionId}`)}
                   >
                     領収書をダウンロード

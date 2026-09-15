@@ -8,10 +8,10 @@ import { Avatar, LevelBadge } from '@/components/ui';
 
 const STATUS_TONE: Record<string, string> = {
   requested: 'bg-emerald-500/20 text-emerald-600',
-  cast_selectable: 'bg-gold-100 text-gold-700',
+  cast_selectable: 'bg-brand-100 text-brand-700',
   cast_requested: 'bg-sky-500/20 text-sky-600',
-  scheduled: 'bg-gold-100 text-gold-700',
-  in_progress: 'bg-purple-500/20 text-purple-300',
+  scheduled: 'bg-brand-100 text-brand-700',
+  in_progress: 'bg-purple-50 text-purple-700',
   finished: 'bg-ink-200 text-ink-900',
   completed: 'bg-ink-200 text-ink-700',
 };
@@ -44,9 +44,9 @@ export function MeetingCard({
           <div className="flex items-center gap-1.5">
             <span className={`badge ${tone}`}>{meeting.statusLabel}</span>
             {meeting.category === 'individual' ? (
-              <span className="badge bg-pink-500/20 text-pink-300">個TOLA</span>
+              <span className="badge bg-pink-50 text-pink-700">個TOLA</span>
             ) : null}
-            {countdown ? <span className="text-[10px] text-gold-700">{countdown}</span> : null}
+            {countdown ? <span className="text-[10px] text-brand-700">{countdown}</span> : null}
           </div>
 
           <p className="mt-1 text-sm font-semibold">
@@ -59,7 +59,7 @@ export function MeetingCard({
 
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-ink-500">
             {meeting.castRank ? <span>{meeting.castRank.name}</span> : null}
-            <span className="text-gold-700">
+            <span className="text-brand-700">
               {/* a settled order shows what it cost, a live one what it may cost */}
               {meeting.finalCosts !== null
                 ? numberToCredits(meeting.finalCosts)

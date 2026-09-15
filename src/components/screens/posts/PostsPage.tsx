@@ -85,8 +85,8 @@ export function PostsPage(): ReactNode {
       ) : null}
 
       {data?.biggestGift ? (
-        <div className="m-4 card border-gold-300 bg-gold-50">
-          <p className="text-[10px] text-gold-700">直近8時間の最高額ギフト</p>
+        <div className="m-4 card border-brand-300 bg-brand-50">
+          <p className="text-[10px] text-brand-700">直近8時間の最高額ギフト</p>
           <div className="mt-1 flex items-center gap-2">
             {data.biggestGift.sticker ? (
               <img src={data.biggestGift.sticker.pictureUrl} alt="" className="h-10 w-10 object-contain" />
@@ -94,7 +94,7 @@ export function PostsPage(): ReactNode {
             <p className="min-w-0 flex-1 truncate text-xs">
               {data.biggestGift.donor?.nickName} → {data.biggestGift.recipient?.nickName}
             </p>
-            <span className="text-sm font-bold text-gold-700">{numberToCredits(data.biggestGift.chargedAmount)}</span>
+            <span className="text-sm font-bold text-brand-700">{numberToCredits(data.biggestGift.chargedAmount)}</span>
           </div>
         </div>
       ) : null}
@@ -131,7 +131,7 @@ export function PostsPage(): ReactNode {
                       <span className="text-[10px] text-ink-500">{post.user.age}歳</span>
                     ) : null}
                     {post.category === 'cast_only' ? (
-                      <span className="badge bg-purple-500/20 text-purple-300">キャストのみ</span>
+                      <span className="badge bg-purple-50 text-purple-700">キャストのみ</span>
                     ) : null}
                     <span className="ml-auto text-[10px] text-ink-500">{formatRelative(post.createdAt)}</span>
                   </div>
@@ -150,7 +150,7 @@ export function PostsPage(): ReactNode {
                     <button
                       type="button"
                       onClick={() => void toggleLike(post)}
-                      className={`flex items-center gap-1 text-xs ${post.likedByMe ? 'text-gold-700' : 'text-ink-500'}`}
+                      className={`flex items-center gap-1 text-xs ${post.likedByMe ? 'text-brand-700' : 'text-ink-500'}`}
                     >
                       {post.likedByMe ? '♥' : '♡'} {post.postLikesCount}
                     </button>

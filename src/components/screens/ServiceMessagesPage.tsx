@@ -39,7 +39,7 @@ export function ServiceMessagesPage(): ReactNode {
           {items.map((message) => (
             <li key={message.id} className="px-4 py-4">
               <div className="flex items-center gap-2">
-                {message.unread ? <span className="h-1.5 w-1.5 rounded-full bg-gold-500" /> : null}
+                {message.unread ? <span className="h-1.5 w-1.5 rounded-full bg-brand-500" /> : null}
                 <p className="text-sm font-semibold">{message.title ?? 'お知らせ'}</p>
                 <span className="ml-auto text-[10px] text-ink-500">{l(message.createdAt)}</span>
               </div>

@@ -47,7 +47,7 @@ export function MeetingCostsPage(): ReactNode {
                 <Avatar src={attendance.user.profilePicUrl} alt={attendance.user.nickName} size="sm" />
               ) : null}
               <p className="min-w-0 flex-1 truncate text-sm font-semibold">{attendance.user?.nickName}</p>
-              <span className="shrink-0 text-sm font-bold text-gold-700">
+              <span className="shrink-0 text-sm font-bold text-brand-700">
                 {numberToCredits(attendance.costs?.total ?? 0)}
               </span>
             </div>
@@ -72,7 +72,7 @@ export function MeetingCostsPage(): ReactNode {
 
       <div className="flex items-center justify-between px-4 py-4">
         <span className="text-sm">合計</span>
-        <span className="text-lg font-bold text-gold-700">{numberToCredits(data.total)}</span>
+        <span className="text-lg font-bold text-brand-700">{numberToCredits(data.total)}</span>
       </div>
 
       {data.meeting.finalDiscount > 0 ? (
@@ -88,7 +88,7 @@ function Row({ label, value, emphasis }: { label: string; value: number; emphasi
   return (
     <div className="flex justify-between">
       <dt>{label}</dt>
-      <dd className={emphasis ? 'font-semibold text-gold-700' : ''}>{numberToCredits(value)}</dd>
+      <dd className={emphasis ? 'font-semibold text-brand-700' : ''}>{numberToCredits(value)}</dd>
     </div>
   );
 }

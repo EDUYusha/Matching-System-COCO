@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { AN } from '@/lib';
 import { useApiQuery } from '@/client/hooks';
 import { PageHeader } from '@/components/ui';
+import { FAQS } from '@/components/screens/help/faqs';
 
 interface CompanyInfo {
   appName: string;
@@ -85,26 +86,9 @@ function StaticPage({ title, children }: { title: string; children: ReactNode })
 }
 
 export function FaqPage(): ReactNode {
-  const faqs: Array<[string, string]> = [
-    ['ポイントとは何ですか？', `${AN.Short}内でのご利用に使う通貨です。1,000ポイント＝1,100円（税込）でご購入いただけます。`],
-    [
-      'グループTOLAと個TOLAの違いは何ですか？',
-      'グループTOLAは複数のキャストを募集してマッチングする方式、個TOLAはチャットでお話したキャストを直接ご指名いただく方式です。',
-    ],
-    [
-      '深夜手当はかかりますか？',
-      'グループTOLAでは00:00〜06:00にかかる場合に深夜手当が加算されます。個TOLAに深夜手当はありません。',
-    ],
-    ['キャストを自分で選べますか？', 'キャストが集まるとキャスト選択画面からお選びいただけます。ご指名には指名料が加算されます。'],
-    ['延長はできますか？', '終了予定時刻を過ぎると自動で延長となり、延長分は1.3倍のポイント消費になります。'],
-    ['キャンセルはできますか？', 'リクエスト確定後のキャンセルはお受けできません。募集中のオーダーは取り消しが可能です。'],
-    ['出金はいつ行われますか？', '15日までの申請は当月25日、16日以降の申請は翌月25日の振込予定です。すぐ出金は3営業日以内です。'],
-    ['当月に獲得したポイントを出金できますか？', '当月獲得分は翌月以降に出金できます。すぐ出金は全残高が対象です。'],
-  ];
-
   return (
     <StaticPage title="よくある質問">
-      {faqs.map(([question, answer]) => (
+      {FAQS.map(({ question, answer }) => (
         <section key={question}>
           <h2 className="text-sm font-semibold text-ink-900">Q. {question}</h2>
           <p className="mt-1">A. {answer}</p>
@@ -117,7 +101,7 @@ export function FaqPage(): ReactNode {
 export function UsageTermsPage(): ReactNode {
   return (
     <StaticPage title="利用規約">
-      <p className="rounded-lg border border-gold-300 bg-gold-50 p-3 text-[11px] text-gold-800">
+      <p className="rounded-lg border border-brand-300 bg-brand-50 p-3 text-[11px] text-brand-800">
         この画面には、移行前のRailsアプリの利用規約本文をそのまま掲載してください。
         下記は条文の構成のみを引き継いだ見出しです。
       </p>
@@ -146,7 +130,7 @@ export function UsageTermsPage(): ReactNode {
 export function PrivacyPolicyPage(): ReactNode {
   return (
     <StaticPage title="プライバシーポリシー">
-      <p className="rounded-lg border border-gold-300 bg-gold-50 p-3 text-[11px] text-gold-800">
+      <p className="rounded-lg border border-brand-300 bg-brand-50 p-3 text-[11px] text-brand-800">
         この画面には、移行前のRailsアプリのプライバシーポリシー本文をそのまま掲載してください。
       </p>
       {[

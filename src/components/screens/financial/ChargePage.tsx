@@ -108,10 +108,10 @@ export function ChargePage(): ReactNode {
               type="button"
               onClick={() => setSelected(step.credits)}
               className={`flex w-full items-center gap-3 px-4 py-3.5 text-left ${
-                selected === step.credits ? 'bg-gold-100' : ''
+                selected === step.credits ? 'bg-brand-100' : ''
               }`}
             >
-              <span className={`text-xl ${selected === step.credits ? 'text-gold-700' : 'text-ink-600'}`}>
+              <span className={`text-xl ${selected === step.credits ? 'text-brand-700' : 'text-ink-600'}`}>
                 {selected === step.credits ? '◉' : '○'}
               </span>
               <span className="min-w-0 flex-1">

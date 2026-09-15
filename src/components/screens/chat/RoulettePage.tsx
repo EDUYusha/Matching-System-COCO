@@ -65,7 +65,7 @@ export function RoulettePage(): ReactNode {
 
       <div className="px-4 py-5 text-center">
         <p className="text-xs text-ink-500">
-          1回 <span className="font-bold text-gold-700">{numberToCredits(data.roll.fee)}</span>
+          1回 <span className="font-bold text-brand-700">{numberToCredits(data.roll.fee)}</span>
         </p>
       </div>
 
@@ -75,7 +75,7 @@ export function RoulettePage(): ReactNode {
             key={`${entry.id}-${index}`}
             className={`rounded-xl border p-3 text-center transition ${
               (spinning && highlight === index) || (revealed && index === 0)
-                ? 'border-gold-500 bg-gold-100 scale-105'
+                ? 'border-brand-500 bg-brand-100 scale-105'
                 : 'border-ink-200 bg-white'
             }`}
           >
@@ -98,10 +98,10 @@ export function RoulettePage(): ReactNode {
           </button>
         ) : (
           <>
-            <div className="card mb-3 border-gold-300 bg-gold-50 text-center">
+            <div className="card mb-3 border-brand-300 bg-brand-50 text-center">
               <p className="text-xs text-ink-700">当選</p>
               <img src={winner?.pictureUrl} alt={winner?.name} className="mx-auto h-24 w-24 object-contain" />
-              <p className="text-sm font-bold text-gold-700">{winner?.name}</p>
+              <p className="text-sm font-bold text-brand-700">{winner?.name}</p>
             </div>
             <button type="button" className="btn-primary w-full" onClick={() => void payForPrize()} disabled={paying}>
               {paying ? <Spinner /> : null}

@@ -96,7 +96,7 @@ export function EditPreferencesPage(): ReactNode {
                             )
                           }
                           className={`badge px-3 py-1.5 ${
-                            active ? 'bg-gold-500 text-ink-900' : 'border border-ink-300 bg-white text-ink-700'
+                            active ? 'bg-brand-500 text-white' : 'border border-ink-300 bg-white text-ink-700'
                           }`}
                         >
                           {preference.name}

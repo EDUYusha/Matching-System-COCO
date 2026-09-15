@@ -56,9 +56,9 @@ export function CastSelectionPage(): ReactNode {
 
       <MeetingDetails meeting={meeting} />
 
-      <div className="card m-4 border-gold-300 bg-gold-50 text-xs">
+      <div className="card m-4 border-brand-300 bg-brand-50 text-xs">
         <p>
-          あと <span className="text-base font-bold text-gold-700">{Math.max(remaining, 0)}</span> 名選択できます。
+          あと <span className="text-base font-bold text-brand-700">{Math.max(remaining, 0)}</span> 名選択できます。
         </p>
         <p className="mt-1 text-[11px] text-ink-500">
           締切までに選択しない場合は自動でマッチングされます。ご自身で選択すると、1名につき
@@ -136,7 +136,7 @@ function CastRow({
             <LevelBadge level={user.level} />
             {user.birthdayPublished && user.age !== null ? <span>{user.age}歳</span> : null}
             {attendance.timesMet && attendance.timesMet > 0 ? (
-              <span className="text-gold-700">{attendance.timesMet}回ご一緒</span>
+              <span className="text-brand-700">{attendance.timesMet}回ご一緒</span>
             ) : null}
             {attendance.leaderId ? <span className="badge bg-sky-500/20 text-sky-600">チーム</span> : null}
           </div>

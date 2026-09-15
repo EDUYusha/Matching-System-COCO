@@ -95,7 +95,7 @@ export function ProfileView({
                 type="button"
                 onClick={() => setPhotoIndex(index)}
                 aria-label={`写真 ${index + 1}`}
-                className={`h-1.5 w-1.5 rounded-full ${index === photoIndex ? 'bg-gold-500' : 'bg-white'}`}
+                className={`h-1.5 w-1.5 rounded-full ${index === photoIndex ? 'bg-brand-500' : 'bg-white'}`}
               />
             ))}
           </div>
@@ -106,19 +106,19 @@ export function ProfileView({
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold">{profile.nickName}</h2>
           {profile.online ? <span className="badge bg-emerald-500/20 text-emerald-600">オンライン</span> : null}
-          {profile.available ? <span className="badge bg-gold-100 text-gold-700">待機中</span> : null}
+          {profile.available ? <span className="badge bg-brand-100 text-brand-700">待機中</span> : null}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-500">
           <LevelBadge level={profile.level} />
           {profile.birthdayPublished && profile.age !== null ? <span>{profile.age}歳</span> : null}
-          {profile.guestTitle ? <span className="badge bg-gold-100 text-gold-700">{profile.guestTitle}</span> : null}
+          {profile.guestTitle ? <span className="badge bg-brand-100 text-brand-700">{profile.guestTitle}</span> : null}
           {profile.individualRepeatCount > 0 ? <span>リピート {profile.individualRepeatCount}回</span> : null}
         </div>
 
         {profile.orderFeePerTime ? (
           <p className="mt-3 text-sm">
             <span className="text-ink-500">個TOLA料金 </span>
-            <span className="font-bold text-gold-700">{numberToCredits(profile.orderFeePerTime)}</span>
+            <span className="font-bold text-brand-700">{numberToCredits(profile.orderFeePerTime)}</span>
             <span className="text-xs text-ink-500"> / 30分</span>
           </p>
         ) : null}
@@ -204,7 +204,7 @@ export function ProfileView({
             {profile.stickers.map((sticker) => (
               <div key={sticker.stickerTemplateId} className="w-16 shrink-0 text-center">
                 <img src={sticker.pictureUrl} alt={sticker.name} className="h-16 w-16 object-contain" />
-                <p className="text-[10px] text-gold-700">×{sticker.count}</p>
+                <p className="text-[10px] text-brand-700">×{sticker.count}</p>
               </div>
             ))}
           </div>
@@ -240,7 +240,7 @@ export function ProfileView({
             {profile.meetingPreferences
               .filter((preference) => preference.selected)
               .map((preference) => (
-                <span key={preference.id} className="badge border border-gold-300 bg-gold-100 text-gold-700">
+                <span key={preference.id} className="badge border border-brand-300 bg-brand-100 text-brand-700">
                   {preference.name}
                 </span>
               ))}

@@ -21,7 +21,7 @@ export const POST = route(async (request) => {
 
   return {
     ok: true,
-    redirect: '/',
+    redirect: '/login',
     flash: { type: 'success', message: 'パスワード再設定用のメールを送信しました。' },
   };
 });

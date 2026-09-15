@@ -111,7 +111,7 @@ export function ReviewPage(): ReactNode {
                       onClick={() =>
                         setEntries({ ...entries, [review.revieweeId]: { ...entry, stars: star } })
                       }
-                      className={`text-3xl leading-none ${star <= entry.stars ? 'text-gold-700' : 'text-ink-600'}`}
+                      className={`text-3xl leading-none ${star <= entry.stars ? 'text-brand-700' : 'text-ink-600'}`}
                       aria-label={`星${star}`}
                     >
                       ★
@@ -144,7 +144,7 @@ export function ReviewPage(): ReactNode {
                                 [review.revieweeId]: { ...entry, stickerId: active ? null : template.id },
                               })
                             }
-                            className={`rounded-lg border p-1.5 ${active ? 'border-gold-500 bg-gold-100' : 'border-ink-300'}`}
+                            className={`rounded-lg border p-1.5 ${active ? 'border-brand-500 bg-brand-100' : 'border-ink-300'}`}
                           >
                             <img src={template.pictureUrl} alt={template.name} className="h-12 w-12 object-contain" />
                             <span className="block text-[10px]">{template.name}</span>

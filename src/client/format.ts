@@ -41,6 +41,29 @@ export function formatRelative(iso: string | null | undefined): string {
   );
 }
 
+/**
+ * The talk list's timestamp, as LINE shows it: the clock time today, 昨日 for
+ * yesterday, the weekday within the past week, and the date before that (with
+ * the year once it is a different year). Days are counted in Tokyo time.
+ */
+export function formatTalkTime(iso: string | null | undefined, now: Date = new Date()): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  const tokyo = (options: Intl.DateTimeFormatOptions, value: Date): string =>
+    new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', ...options }).format(value);
+  // en-CA formats as YYYY-MM-DD, which Date.parse reads as UTC midnight
+  const dayKey = (value: Date): string => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo' }).format(value);
+  const days = Math.round((Date.parse(dayKey(now)) - Date.parse(dayKey(date))) / 86_400_000);
+
+  if (days <= 0) return tokyo({ hour: 'numeric', minute: '2-digit' }, date);
+  if (days === 1) return '昨日';
+  if (days < 7) return tokyo({ weekday: 'long' }, date);
+  if (dayKey(now).slice(0, 4) !== dayKey(date).slice(0, 4)) {
+    return tokyo({ year: 'numeric', month: 'numeric', day: 'numeric' }, date);
+  }
+  return tokyo({ month: 'numeric', day: 'numeric' }, date);
+}
+
 /** The countdown the recruitment list shows against request_end_time. */
 export function formatCountdown(iso: string | null | undefined): string | null {
   if (!iso) return null;

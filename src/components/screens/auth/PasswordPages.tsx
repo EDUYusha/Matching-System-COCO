@@ -48,7 +48,7 @@ export function PasswordRestorationPage(): ReactNode {
         </button>
       </form>
       <p className="mt-6 text-center text-xs">
-        <Link href="/">ログインに戻る</Link>
+        <Link href="/login">ログインに戻る</Link>
       </p>
     </div>
   );
