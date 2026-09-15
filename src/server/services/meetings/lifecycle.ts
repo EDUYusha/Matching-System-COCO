@@ -328,6 +328,17 @@ export async function completeMeeting(
       async (tx) => {
         let dontRollBack = false;
         try {
+          if (options.recharge) {
+            // taken under the row lock so two recharges racing each other cannot
+            // both see post_charge_fail and settle the order twice
+            const rows = await tx.$queryRaw<Array<{ status: string }>>`
+              SELECT status FROM meetings WHERE id = ${meetingId} FOR UPDATE
+            `;
+            if (rows[0]?.status !== 'post_charge_fail') {
+              throw new InteractorFailure('Meeting must have status ›post_charge_fail‹');
+            }
+          }
+
           const costs = await calculateMeetingCosts(meetingId, {}, tx);
           await createMeetingTransactions(meetingId, costs, tx);
           await markMeetingCompleted(meetingId, costs, tx);
@@ -399,6 +410,12 @@ export async function acceptIndividualMeeting(meetingId: number, userId: number)
     (meeting.status === 'requested' && attendance.userId !== userId)
   ) {
     throw new InteractorFailure('No permission');
+  }
+
+  // The request closes 20 seconds before the start. The timeout job normally
+  // moves it on first, but an answer racing that job must not slip through.
+  if (meeting.requestEndTime && Date.now() > meeting.requestEndTime.getTime()) {
+    throw new InteractorFailure("It's too late to accept this request");
   }
 
   if (!config.deferred_payment) {

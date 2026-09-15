@@ -4,6 +4,7 @@ import { AppError } from '@/server/lib/errors';
 import { logger } from '@/server/lib/logger';
 import { enroll3ds } from '@/server/services/payment-gateway';
 import { allChargeSteps, chargeStepFor } from '@/server/services/buy-credits';
+import { chargeCallbackSignature } from '@/server/lib/charge-callback';
 import { env } from '@/server/config/env';
 import { requirePermission } from '@/server/auth/session';
 import { jsonBody, route } from '@/server/http/route';
@@ -63,7 +64,9 @@ export const POST = route(async (request) => {
     status: 'pending',
     md: result.xid,
     threeDs2Flag: '2',
-    termUrl: `${env.publicUrl}/api/financial/parres_buy?charge_amount=${step.yen}&credits=${step.total}`,
+    termUrl:
+      `${env.publicUrl}/api/financial/parres_buy?charge_amount=${step.yen}&credits=${step.total}` +
+      `&sig=${chargeCallbackSignature(result.xid ?? '', step.yen, step.total)}`,
     iframeUrl: result.iframeUrl ? decodeURIComponent(result.iframeUrl) : null,
     pareq: 'PaReq',
     chargeAmount: step.yen,

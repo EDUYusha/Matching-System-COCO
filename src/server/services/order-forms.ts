@@ -119,7 +119,11 @@ export async function validateOrderForm(form: NormalisedOrderForm): Promise<void
   if (Object.keys(errors).length) {
     throw new ValidationError(
       Object.entries(errors)
-        .flatMap(([field, messages]) => messages.map((message) => `${field} ${message}`))
+        .flatMap(([field, messages]) =>
+          // Rails-style fragments ("は60以上…") need the attribute in front; the
+          // full sentences ("現在の時刻より…") are shown as written
+          messages.map((message) => (/^[はが]/.test(message) ? `${field} ${message}` : message)),
+        )
         .join('\n'),
       errors,
     );

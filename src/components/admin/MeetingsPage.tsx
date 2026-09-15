@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
 import type { MeetingSummary, Paginated } from '@/lib';
-import { l, MEETING_STATUSES, numberToCredits } from '@/lib';
+import { ADMIN_MEETING_STATUS_LABELS, l, MEETING_STATUSES, numberToCredits } from '@/lib';
 import { query } from '@/client/admin-api';
 import { useAdminQuery } from '@/client/admin-hooks';
 import { Badge, DataTable, Field, Loading, PageTitle, Pagination } from '@/components/admin/ui';
@@ -125,7 +125,7 @@ export function MeetingsPage(): ReactNode {
                               : 'warn'
                       }
                     >
-                      {row.statusLabel}
+                      {ADMIN_MEETING_STATUS_LABELS[row.status]}
                     </Badge>
                   ),
                 },

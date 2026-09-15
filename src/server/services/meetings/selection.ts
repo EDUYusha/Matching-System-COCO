@@ -7,7 +7,7 @@ import { createSystemMessage, systemMessageToUser } from '@/server/services/mess
 import { firstMeetingSendMessage } from '@/server/services/auto-send-message';
 import { CastScore, type ScoredAttendance } from '@/server/services/meetings/cast-score';
 import { meetingSummary, parallelAttendances, type MeetingLike } from '@/server/services/meetings/model';
-import { prepareMeetingFinances } from '@/server/services/meetings/finances';
+import { MeetingFinanceFailure, prepareMeetingFinances } from '@/server/services/meetings/finances';
 import { scheduleStartReminders } from '@/server/services/meetings/setup';
 
 /**
@@ -179,29 +179,49 @@ async function prepareAttendance(
  * SetupCastSelection — runs once, when enough cast have entered: reserves the
  * money and opens the selection screen.
  *
- * The original took a row lock and re-checked the status inside it so two cast
- * entering simultaneously cannot both trigger the charge.
+ * The row lock is held until the money is reserved and the status has moved on,
+ * as the original's `with_lock` block did. A second cast entering at the same
+ * moment waits on the lock and then finds cast_selectable, instead of reserving
+ * the credits (and auto-charging the card) a second time.
  */
 export async function setupCastSelection(meetingId: number): Promise<void> {
   const before = await prisma.meeting.findUnique({ where: { id: meetingId }, select: { status: true } });
   if (before?.status !== 'requested') return;
 
-  const locked = await prisma.$transaction(async (t) => {
-    const rows = await t.$queryRaw<Array<{ status: string }>>`
-      SELECT status FROM meetings WHERE id = ${meetingId} FOR UPDATE
-    `;
-    return rows[0]?.status;
-  });
-  if (locked !== 'requested') return;
+  let started = false;
+  try {
+    started = await prisma.$transaction(
+      async (t) => {
+        const rows = await t.$queryRaw<Array<{ status: string }>>`
+          SELECT status FROM meetings WHERE id = ${meetingId} FOR UPDATE
+        `;
+        if (rows[0]?.status !== 'requested') return false;
 
-  await prepareMeetingFinances(meetingId);
-  await startCastSelection(meetingId);
+        await prepareMeetingFinances(meetingId, t);
+        await t.meeting.update({ where: { id: meetingId }, data: { status: 'cast_selectable' } });
+        return true;
+      },
+      // the card charge happens inside the lock
+      { timeout: 120_000, maxWait: 20_000 },
+    );
+  } catch (error) {
+    // the rollback also undid the failure status prepareMeetingFinances wrote
+    if (error instanceof MeetingFinanceFailure && error.meetingFailureStatus) {
+      await prisma.meeting.update({
+        where: { id: meetingId },
+        data: { status: error.meetingFailureStatus as never },
+      });
+    }
+    throw error;
+  }
+
+  if (started) await startCastSelection(meetingId);
 }
 
 /** StartCastSelection — tells the guest their order can now be staffed. */
 export async function startCastSelection(meetingId: number): Promise<void> {
   const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id: meetingId } });
-  if (meeting.status !== 'requested') return;
+  if (meeting.status !== 'cast_selectable') return;
 
   await systemMessageToUser(meeting.ownerId, {
     withBroadcast: true,
@@ -216,8 +236,6 @@ export async function startCastSelection(meetingId: number): Promise<void> {
 <a class="message_room_cast_select_btn" href="/meetings/${meeting.id}">キャスト選択画面へ</a>
 `,
   });
-
-  await prisma.meeting.update({ where: { id: meeting.id }, data: { status: 'cast_selectable' } });
 }
 
 /**

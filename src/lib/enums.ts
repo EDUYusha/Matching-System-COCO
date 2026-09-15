@@ -128,3 +128,9 @@ export const MEETING_STATUS_LABELS: Record<MeetingStatus, string> = {
   chargeback_fail: '返金失敗',
   admin_cancel_fail: '運営キャンセル',
 };
+
+/** The operator panel's wording, where it differs from what members see. */
+export const ADMIN_MEETING_STATUS_LABELS: Record<MeetingStatus, string> = {
+  ...MEETING_STATUS_LABELS,
+  post_charge_fail: '残高不足',
+};

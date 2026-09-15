@@ -761,7 +761,7 @@ model UserTrophy {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   trophy Trophy @relation(fields: [trophyId], references: [id], onDelete: Cascade)
 
-  @@index([userId, trophyId])
+  @@unique([userId, trophyId])
   @@map("user_trophies")
 }
 

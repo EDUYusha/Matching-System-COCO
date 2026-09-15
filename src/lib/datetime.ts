@@ -173,6 +173,33 @@ export function tokyoNextMonth(date: Date = new Date()): Date {
   return new Date(`${year}-${p2(month)}-${p2(day)}T${p2(t.hour)}:${p2(t.minute)}:${p2(t.second)}+09:00`);
 }
 
+/**
+ * Same Tokyo wall-clock time `months` months earlier, clamped to the end of a
+ * shorter month like Ruby's `n.months.ago` (03-31 minus one month is 02-28).
+ * `Date#setMonth` overflows into the following month instead (03-31 → 03-03).
+ */
+export function tokyoMonthsAgo(months: number, date: Date = new Date()): Date {
+  const t = tokyoParts(date);
+  const monthIndex = t.year * 12 + (t.month - 1) - months;
+  const year = Math.floor(monthIndex / 12);
+  const month = monthIndex - year * 12 + 1;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const day = Math.min(t.day, lastDay);
+  return new Date(`${year}-${p2(month)}-${p2(day)}T${p2(t.hour)}:${p2(t.minute)}:${p2(t.second)}+09:00`);
+}
+
+/**
+ * The value to write to a `@db.Date` column for the calendar day "YYYY-MM-DD".
+ *
+ * Postgres turns the timestamp Prisma sends into a date using the *session* time
+ * zone, so Tokyo midnight (15:00 UTC the day before) only lands on the intended
+ * day when the session runs in Asia/Tokyo. UTC midnight lands on the same day in
+ * a UTC session and in a Tokyo one.
+ */
+export function dbDate(isoDay: string): Date {
+  return new Date(`${isoDay}T00:00:00Z`);
+}
+
 /** Ruby's Time#beginning_of_minute. */
 export function beginningOfMinute(date: Date = new Date()): Date {
   const d = new Date(date);

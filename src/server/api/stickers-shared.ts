@@ -33,6 +33,17 @@ export async function rouletteInit(
     });
   }
 
+  // the same refusal as ordinary gifts to a cast who has blocked this guest
+  const blocked = await prisma.blocking.findFirst({
+    where: { userId: partner.id, targetId: user.id },
+    select: { id: true },
+  });
+  if (blocked) {
+    throw new AppError('このユーザーは現在ギフトが無効に設定しております。', {
+      redirect: `/conversations/${conversationId}`,
+    });
+  }
+
   const roulette = await prisma.roulette.findFirst({ where: { id: rouletteId, active: true } });
   if (!roulette) throw new AppError('無効なID', { statusCode: 404 });
 

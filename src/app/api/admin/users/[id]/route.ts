@@ -175,13 +175,35 @@ export const PATCH = route<{ id: string }>(async (request, { params: routeParams
   return { ok: true };
 });
 
-/** admin: DELETE /admin/users/:id */
+/**
+ * admin: DELETE /admin/users/:id — 退会.
+ *
+ * Besides hiding the account, the email and LINE id are prefixed so they stop
+ * matching a login and the person can register again with them. 復元 hands out
+ * fresh credentials rather than undoing the prefix.
+ */
 export const DELETE = route<{ id: string }>(async (_request, { params: routeParams }) => {
   await requireAdmin();
   const params = z.object({ id: z.coerce.number() }).parse(routeParams);
-  await prisma.user.update({
+
+  const user = await prisma.user.findUniqueOrThrow({
     where: { id: params.id },
-    data: { discardedAt: new Date(), loggedOut: true, authToken: null, rememberToken: null },
+    select: { id: true, email: true, snsId: true },
+  });
+  const prefix = `deleted___user__${user.id}__`;
+  const withdrawn = (value: string | null) => (value && !value.startsWith(prefix) ? `${prefix}${value}` : value);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      accessLevel: 'ceased',
+      email: withdrawn(user.email),
+      snsId: withdrawn(user.snsId),
+      discardedAt: new Date(),
+      loggedOut: true,
+      authToken: null,
+      rememberToken: null,
+    },
   });
   return { ok: true };
 });
