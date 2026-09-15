@@ -1,0 +1,1501 @@
+// TOLA / co-co.today — PostgreSQL schema.
+//
+// Ported 1:1 from the Rails 6 app (server/db/schema.rb @ 2022_10_24_100417 plus the
+// ten later migrations in server/db/migrate). Table and column names are preserved
+// verbatim via @@map/@map so SQL reports and admin queries carry over unchanged.
+//
+// Differences from the MySQL original, all deliberate:
+//   * bigint primary keys become Int (serial). Postgres `bigserial` is available via
+//     @db.BigInt if the row counts ever demand it; Int keeps ids as plain JS numbers.
+//   * Rails `serialize :x, JSON` text columns become Json.
+//   * Rails enumerize string columns become native Postgres enums where the value set
+//     is closed, and stay String where the admin writes free-form values.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// enums (from `extend Enumerize` declarations in app/models)
+// ---------------------------------------------------------------------------
+
+enum UserType {
+  cast
+  customer
+  inviter
+  operator
+  admin
+  system
+}
+
+/// User::ACCESS_LEVEL_RANKING — ordered, lowest privilege first. The ordering is
+/// what User#compatible_level? compares, so declaration order is significant.
+enum AccessLevel {
+  rejected
+  ceased
+  unauthorized
+  picture_uploaded
+  interview_date_pending
+  interview_pending
+  contract_pending
+  contract_accepted
+  full
+}
+
+enum MeetingStatus {
+  requested
+  cast_selectable
+  cast_requested
+  scheduled
+  in_progress
+  finished
+  completed
+  general_fail
+  not_enough_cast_fail
+  score_too_low_fail
+  request_denied_fail
+  request_canceled_fail
+  pre_charge_fail
+  post_charge_fail
+  chargeback_fail
+  admin_cancel_fail
+}
+
+enum MeetingCategory {
+  general
+  individual
+}
+
+enum CastAttendanceRole {
+  attending
+  unconfirmed
+  requested
+  out
+}
+
+enum DecisionBy {
+  customer
+  operator
+  system
+  cast
+}
+
+enum ConversationCategory {
+  meeting
+  private
+  system
+  operator
+  admin
+}
+
+enum MessageCategory {
+  text
+  picture
+  sticker
+  service
+  internal
+}
+
+enum PostCategory {
+  public
+  cast_only
+}
+
+enum CreditCardStatus {
+  invalid
+  valid
+}
+
+enum FlowDirection {
+  in
+  re_in
+  out
+  fast_out
+}
+
+enum CreditTransactionCategory {
+  meeting
+  sticker
+  charge
+  auto_charge
+  chargeback
+  payout
+  manual
+  manual_reflect
+  inviter
+  inviter_cast
+  patron_reward
+  cast_reward
+  reward
+  penalty
+  likes_reward
+  inviter_profit_share
+  inviter_cast_profit_share
+  event_gift_reward
+}
+
+enum RewardingCategory {
+  invitation
+  being_reviewed
+  reviewing
+  usage
+  attendance
+}
+
+/// RewardingRule#policy — `method` was not usable as an ActiveRecord attribute name.
+enum RewardingPolicy {
+  fixed_steps
+  fixed_turnover
+  relative_turnover
+}
+
+enum AttributeValidity {
+  cast
+  customer
+  all
+}
+
+// ---------------------------------------------------------------------------
+// users and profile
+// ---------------------------------------------------------------------------
+
+model User {
+  id       Int      @id @default(autoincrement())
+  email    String?
+  userType UserType @map("user_type")
+  nickName String   @map("nick_name")
+
+  authToken        String?   @map("auth_token")
+  snsId            String?   @map("sns_id")
+  joinDate         DateTime  @map("join_date") @db.Date
+  lastLogin        DateTime? @map("last_login")
+  lastActivity     DateTime? @map("last_activity")
+  loggedOut        Boolean   @default(true) @map("logged_out")
+  passwordDigest   String?   @map("password_digest")
+  rememberToken    String?   @map("remember_token")
+  restorationToken String?   @map("restoration_token")
+
+  publicProfile      Boolean   @default(true) @map("public_profile")
+  motto              String?
+  creditcardToken    String?   @map("creditcard_token")
+  serviceFeePermille Int?      @map("service_fee_permille")
+  birthday           DateTime? @db.Date
+  birthdayPublished  Int?      @map("birthday_published")
+  profilePicUrl      String?   @map("profile_pic_url")
+
+  businessAreaId  Int? @map("business_area_id")
+  castLevelId     Int? @map("cast_level_id")
+  customerLevelId Int? @map("customer_level_id")
+
+  creditBalance Int @default(0) @map("credit_balance")
+  frozenCredits Int @default(0) @map("frozen_credits")
+
+  availableUntil  DateTime? @map("available_until")
+  orderFeePerTime Int?      @map("order_fee_per_time")
+  deviceIds       Json?     @map("device_ids")
+  inviterId       Int?      @map("inviter_id")
+  realName        String?   @map("real_name")
+  discardedAt     DateTime? @map("discarded_at")
+  phone           String?
+  accessLevel     AccessLevel @default(full) @map("access_level")
+  lastPostReadAt  DateTime? @map("last_post_read_at")
+
+  /// additional credits added to meeting ranking sum
+  meetingRankingCheat Int @default(0) @map("meeting_ranking_cheat")
+  /// additional credits added to sticker ranking sum
+  stickerRankingCheat Int @default(0) @map("sticker_ranking_cheat")
+
+  firstPrivatelyMetUserId       Int?      @map("first_privately_met_user_id")
+  firstPrivatelyMetAt           DateTime? @map("first_privately_met_at")
+  firstExperienceRewardPermille Int       @default(0) @map("first_experience_reward_permille")
+  customersSelected             Boolean   @default(false) @map("customers_selected")
+  lastServiceMessageReadAt      DateTime? @map("last_service_message_read_at")
+  additionalScore               Int       @default(0) @map("additional_score")
+  individualRepeatCount         Int       @default(0) @map("individual_repeat_count")
+
+  /// Days between the previous and current login, refreshed on every login.
+  /// Used by PostsController#index to surface long-absent guests to cast.
+  daysElapsed Int?    @map("days_elapsed")
+  /// utm_source captured at signup (session[:utm_source]).
+  adSource    String? @map("ad_source")
+  /// Honorific shown beside guests in rankings (added 2026-02-25).
+  guestTitle  String? @map("guest_title")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  businessArea  BusinessArea?  @relation(fields: [businessAreaId], references: [id])
+  castLevel     CastLevel?     @relation(fields: [castLevelId], references: [id])
+  customerLevel CustomerLevel? @relation(fields: [customerLevelId], references: [id])
+
+  inviter  User?  @relation("Invitations", fields: [inviterId], references: [id])
+  invitees User[] @relation("Invitations")
+
+  firstPrivatelyMetUser User?  @relation("FirstPrivatelyMet", fields: [firstPrivatelyMetUserId], references: [id])
+  castsFirstMetByMe     User[] @relation("FirstPrivatelyMet")
+
+  userAttributes    Attribute[]
+  meetingPreferences MeetingPreference[]
+  castBankAccount   CastBankAccount?
+  creditCard        CreditCard?
+  settings          UserSettings?
+  accessRequest     AccessRequest?
+  introMessage      IntroMessage?
+
+  speakers       Speaker[]
+  sentMessages   Message[]
+  unreadMessages UnreadMessage[]
+
+  blockings    Blocking[] @relation("Blocker")
+  blockedBy    Blocking[] @relation("Blocked")
+
+  pictures Picture[]
+
+  castAttendances CastAttendance[]
+  ownedMeetings   Meeting[]        @relation("MeetingOwner")
+  meetingProposals MeetingProposal[]
+
+  footprintsLeft   Footprint[] @relation("FootprintWalker")
+  footprintsOnMe   Footprint[] @relation("FootprintProfile")
+  favorites        Favorite[]  @relation("Favoriter")
+  favorizations    Favorite[]  @relation("Favorited")
+
+  posts         Post[]
+  postLikesByMe PostLike[]
+
+  stickersReceived Sticker[] @relation("StickerRecipient")
+  stickersBought   Sticker[] @relation("StickerBuyer")
+
+  userTrophies UserTrophy[]
+
+  reviewsForMe Review[] @relation("Reviewee")
+  reviewsByMe  Review[] @relation("Reviewer")
+
+  friendships   Friendship[] @relation("FriendshipOwner")
+  friendOf      Friendship[] @relation("FriendshipFriend")
+
+  userHighlightings UserHighlighting[]
+  userAssessments   UserAssessment[]
+
+  memosByMe     UserMemo[] @relation("MemoAuthor")
+  memosAboutMe  UserMemo[] @relation("MemoTarget")
+
+  payoutRequests PayoutRequest[]
+
+  chargedTransactions  CreditTransaction[] @relation("ChargedUser")
+  creditedTransactions CreditTransaction[] @relation("CreditedUser")
+  creditConversions    CreditConversion[]
+
+  rewardingRules RewardingRule[]
+
+  rouletteRollsPaid    RouletteRoll[] @relation("RoulettePayer")
+  rouletteRollsGranted RouletteRoll[] @relation("RouletteGrantee")
+
+  rankingVisibilityHistory UserRankingVisibilityHistory[]
+
+  @@index([businessAreaId])
+  @@index([castLevelId])
+  @@index([customerLevelId])
+  @@index([discardedAt])
+  @@index([firstPrivatelyMetUserId])
+  @@index([inviterId])
+  @@index([lastLogin])
+  @@index([snsId])
+  @@index([email])
+  @@map("users")
+}
+
+model UserSettings {
+  id                    Int       @id @default(autoincrement())
+  userId                Int?      @unique @map("user_id")
+  messageNotification   Boolean?  @default(true) @map("message_notification")
+  footprintNotification Boolean?  @default(true) @map("footprint_notification")
+  noRanking             Boolean   @default(false) @map("no_ranking")
+  noFame                Boolean   @default(true) @map("no_fame")
+  noRankingSetAt        DateTime? @map("no_ranking_set_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([noRankingSetAt])
+  @@map("user_settings")
+}
+
+/// Every change of UserSettings#no_ranking, so monthly rankings can ask whether a
+/// user was hidden at the deadline rather than only whether they are hidden now.
+model UserRankingVisibilityHistory {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  visible   Boolean
+  changedAt DateTime @map("changed_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, changedAt])
+  @@map("user_ranking_visibility_history")
+}
+
+model AccessRequest {
+  id              Int      @id @default(autoincrement())
+  userId          Int?     @unique @map("user_id")
+  uploadedPicture String?  @map("uploaded_picture")
+  interview       Boolean  @default(false)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("access_requests")
+}
+
+model Attribute {
+  id        Int     @id @default(autoincrement())
+  userId    Int     @map("user_id")
+  name      String
+  value     String? @db.VarChar(2047)
+  valueType String? @map("value_type")
+  category  String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([name])
+  @@map("attributes")
+}
+
+model AttributesSchema {
+  id            Int                @id @default(autoincrement())
+  name          String
+  validity      AttributeValidity?
+  attributeType String?            @map("attribute_type")
+  comment       String?
+  category      String
+  /// JSON array of selectable values (Rails `serialize :value_list, JSON`).
+  valueList     Json?              @map("value_list")
+  sortIndex     Int?               @map("sort_index")
+
+  @@index([name])
+  @@map("attributes_schema")
+}
+
+model UserAssessment {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  name      String
+  value     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@map("user_assessments")
+}
+
+model UserMemo {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  targetId  Int      @map("target_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user   User @relation("MemoAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  target User @relation("MemoTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([targetId, userId])
+  @@index([userId])
+  @@map("user_memos")
+}
+
+model IntroMessage {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  template  String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("intro_messages")
+}
+
+model Picture {
+  id         Int     @id @default(autoincrement())
+  userId     Int     @map("user_id")
+  public     Boolean @default(false)
+  profilePic Boolean @default(false) @map("profile_pic")
+  /// Shrine attachment metadata (id/storage/metadata), kept as JSON.
+  fileData   Json    @map("file_data")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("pictures")
+}
+
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  targetId  Int      @map("target_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user   User @relation("Favoriter", fields: [userId], references: [id], onDelete: Cascade)
+  target User @relation("Favorited", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetId])
+  @@index([targetId])
+  @@map("favorites")
+}
+
+model Footprint {
+  id            Int      @id @default(autoincrement())
+  /// the visitor who stepped
+  userId        Int      @map("user_id")
+  /// the profile that was stepped on
+  profileUserId Int      @map("profile_user_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  unread        Boolean  @default(true)
+
+  user        User @relation("FootprintWalker", fields: [userId], references: [id], onDelete: Cascade)
+  profileUser User @relation("FootprintProfile", fields: [profileUserId], references: [id], onDelete: Cascade)
+
+  @@index([profileUserId])
+  @@index([unread])
+  @@index([userId])
+  @@map("footprints")
+}
+
+model Blocking {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  targetId  Int      @map("target_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User @relation("Blocker", fields: [userId], references: [id], onDelete: Cascade)
+  target User @relation("Blocked", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([targetId, userId])
+  @@index([userId])
+  @@map("blockings")
+}
+
+model Friendship {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  friendId  Int      @map("friend_id")
+  status    String   @default("default")
+  mutual    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user   User @relation("FriendshipOwner", fields: [userId], references: [id], onDelete: Cascade)
+  friend User @relation("FriendshipFriend", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@index([friendId])
+  @@map("friendships")
+}
+
+model Highlighting {
+  id           Int      @id @default(autoincrement())
+  categoryName String   @map("category_name")
+  /// 'all' | 'cast' | 'customer' | 'inviter' — admin writes this freely.
+  userType     String   @default("all") @map("user_type")
+  note         String?
+  active       Boolean  @default(true)
+  sortIndex    Int?     @map("sort_index")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  userHighlightings UserHighlighting[]
+
+  @@map("highlightings")
+}
+
+model UserHighlighting {
+  id             Int      @id @default(autoincrement())
+  highlightingId Int      @map("highlighting_id")
+  userId         Int      @map("user_id")
+  content        String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  highlighting Highlighting @relation(fields: [highlightingId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([highlightingId])
+  @@index([userId])
+  @@map("user_highlightings")
+}
+
+// ---------------------------------------------------------------------------
+// org structure: business areas, areas, levels, ranks
+// ---------------------------------------------------------------------------
+
+model BusinessArea {
+  id        Int      @id @default(autoincrement())
+  name      String
+  active    Boolean  @default(true)
+  sortIndex Int      @default(0) @map("sort_index")
+  color     String   @default("#e6b324")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  admins          Admin[]
+  areas           Area[]
+  castRanks       CastRank[]
+  stickerTemplates StickerTemplate[]
+  serviceMessages ServiceMessage[]
+  users           User[]
+
+  @@map("business_areas")
+}
+
+model Area {
+  id             Int      @id @default(autoincrement())
+  businessAreaId Int      @map("business_area_id")
+  name           String
+  sortIndex      Int      @default(0) @map("sort_index")
+  /// true for one-off areas typed in by a guest rather than picked from the list
+  custom         Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  businessArea BusinessArea @relation(fields: [businessAreaId], references: [id])
+
+  meetingPlaces   MeetingPlace[]
+  meetings        Meeting[]
+  meetingProposals MeetingProposal[]
+
+  @@index([businessAreaId])
+  @@map("areas")
+}
+
+model Admin {
+  id             Int      @id @default(autoincrement())
+  businessAreaId Int?     @map("business_area_id")
+  loginName      String   @unique @map("login_name")
+  passwordDigest String   @map("password_digest")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  businessArea BusinessArea? @relation(fields: [businessAreaId], references: [id])
+  notes        Note[]
+
+  @@index([businessAreaId])
+  @@map("admins")
+}
+
+model CastLevel {
+  id                 Int      @id @default(autoincrement())
+  name               String
+  sortIndex          Int      @default(0) @map("sort_index")
+  color              String   @default("#e6b324")
+  minOrderFeePerTime Int?     @map("min_order_fee_per_time")
+  maxOrderFeePerTime Int?     @map("max_order_fee_per_time")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  castRanks CastLevelsRank[]
+  users     User[]
+
+  @@map("cast_levels")
+}
+
+model CastRank {
+  id                 Int      @id @default(autoincrement())
+  businessAreaId     Int      @map("business_area_id")
+  name               String
+  baseCostPerTime    Int      @map("base_cost_per_time")
+  prolongCostPerTime Int      @map("prolong_cost_per_time")
+  /// guest may propose a higher price than base_cost_per_time
+  proposedPrice      Boolean  @default(false) @map("proposed_price")
+  /// price is for the whole order rather than per cost_time_interval
+  fixedPrice         Boolean  @default(false) @map("fixed_price")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  businessArea BusinessArea @relation(fields: [businessAreaId], references: [id])
+
+  castLevels       CastLevelsRank[]
+  meetings         Meeting[]
+  meetingProposals MeetingProposal[]
+
+  @@index([businessAreaId])
+  @@map("cast_ranks")
+}
+
+/// habtm join table cast_levels <-> cast_ranks (no id column in the original).
+model CastLevelsRank {
+  castLevelId Int @map("cast_level_id")
+  castRankId  Int @map("cast_rank_id")
+
+  castLevel CastLevel @relation(fields: [castLevelId], references: [id], onDelete: Cascade)
+  castRank  CastRank  @relation(fields: [castRankId], references: [id], onDelete: Cascade)
+
+  @@id([castLevelId, castRankId])
+  @@index([castRankId, castLevelId])
+  @@map("cast_levels_ranks")
+}
+
+model CustomerLevel {
+  id            Int      @id @default(autoincrement())
+  name          String
+  color         String   @default("#e6b324")
+  sortIndex     Int      @default(0) @map("sort_index")
+  entrySpending Int?     @map("entry_spending")
+  holdSpending  Int?     @map("hold_spending")
+  nextLevelId   Int?     @map("next_level_id")
+  prevLevelId   Int?     @map("prev_level_id")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  nextLevel CustomerLevel?  @relation("NextLevel", fields: [nextLevelId], references: [id])
+  prevOfNext CustomerLevel[] @relation("NextLevel")
+  prevLevel CustomerLevel?  @relation("PrevLevel", fields: [prevLevelId], references: [id])
+  nextOfPrev CustomerLevel[] @relation("PrevLevel")
+
+  users     User[]
+  roulettes CustomerLevelsRoulette[]
+
+  @@index([nextLevelId])
+  @@index([prevLevelId])
+  @@map("customer_levels")
+}
+
+model CompanyInformation {
+  id             Int      @id @default(autoincrement())
+  name           String?
+  zipCode        String?  @map("zip_code")
+  address        String?
+  building       String?
+  phone          String?
+  personInCharge String?  @map("person_in_charge")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("company_informations")
+}
+
+model Note {
+  id        Int      @id @default(autoincrement())
+  /// polymorphic target, e.g. "User" / "Meeting"
+  itemType  String?  @map("item_type")
+  itemId    Int?     @map("item_id")
+  content   String?
+  adminId   Int?     @map("admin_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  admin Admin? @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([itemType, itemId])
+  @@map("notes")
+}
+
+model Banner {
+  id               Int      @id @default(autoincrement())
+  name             String?
+  bannerPictureUrl String   @map("banner_picture_url")
+  mainPictureUrl   String?  @map("main_picture_url")
+  /// slot on the home screen; unique per position (enforced in the service layer)
+  position         String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("banners")
+}
+
+model ServiceMessage {
+  id             Int      @id @default(autoincrement())
+  title          String?
+  content        String?
+  businessAreaId Int?     @map("business_area_id")
+  forCustomers   Boolean  @default(true) @map("for_customers")
+  forCast        Boolean  @default(true) @map("for_cast")
+  forInviters    Boolean  @default(true) @map("for_inviters")
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  businessArea BusinessArea? @relation(fields: [businessAreaId], references: [id])
+
+  @@index([businessAreaId])
+  @@index([createdAt])
+  @@map("service_messages")
+}
+
+model Trophy {
+  id          Int      @id @default(autoincrement())
+  name        String
+  imageUrl    String   @map("image_url")
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  userTrophies UserTrophy[]
+
+  @@map("trophies")
+}
+
+model UserTrophy {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  trophyId  Int      @map("trophy_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trophy Trophy @relation(fields: [trophyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trophyId])
+  @@map("user_trophies")
+}
+
+// ---------------------------------------------------------------------------
+// meeting places
+// ---------------------------------------------------------------------------
+
+model MeetingPlace {
+  id          Int      @id @default(autoincrement())
+  areaId      Int      @map("area_id")
+  name        String   @unique
+  url         String?
+  phone       String?
+  address     String?
+  description String?
+  /// JSON array of image urls (Rails `serialize :image_urls, JSON`).
+  imageUrls   Json?    @map("image_urls")
+  active      Boolean  @default(true)
+  sortIndex   Int      @default(0) @map("sort_index")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  area Area                    @relation(fields: [areaId], references: [id])
+  tags MeetingPlaceTagEntry[]
+
+  @@index([areaId])
+  @@map("meeting_places")
+}
+
+model MeetingPlaceTag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  places MeetingPlaceTagEntry[]
+
+  @@map("meeting_place_tags")
+}
+
+model MeetingPlaceTagEntry {
+  meetingPlaceId    Int @map("meeting_place_id")
+  meetingPlaceTagId Int @map("meeting_place_tag_id")
+
+  meetingPlace MeetingPlace    @relation(fields: [meetingPlaceId], references: [id], onDelete: Cascade)
+  tag          MeetingPlaceTag @relation(fields: [meetingPlaceTagId], references: [id], onDelete: Cascade)
+
+  @@id([meetingPlaceId, meetingPlaceTagId])
+  @@index([meetingPlaceTagId])
+  @@map("meeting_place_tag_entries")
+}
+
+// ---------------------------------------------------------------------------
+// matching preferences
+// ---------------------------------------------------------------------------
+
+model MeetingPreferencesSchema {
+  id                 Int     @id @default(autoincrement())
+  name               String?
+  category           String?
+  subcategory        String?
+  sortIndex          Int?    @map("sort_index")
+  active             Boolean @default(true)
+  /// points this preference contributes in AutoSelectCast
+  score              Int     @default(5)
+  castPreference     Boolean @default(true) @map("cast_preference")
+  customerPreference Boolean @default(true) @map("customer_preference")
+  mutuallyExclusive  Boolean @default(false) @map("mutually_exclusive")
+
+  meetingPreferences MeetingPreference[]
+
+  @@map("meeting_preferences_schema")
+}
+
+model MeetingPreference {
+  id       Int  @id @default(autoincrement())
+  userId   Int  @map("user_id")
+  parentId Int? @map("parent_id")
+
+  user   User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent MeetingPreferencesSchema? @relation(fields: [parentId], references: [id])
+
+  @@unique([userId, parentId])
+  @@index([parentId])
+  @@map("meeting_preferences")
+}
+
+// ---------------------------------------------------------------------------
+// meetings (orders)
+// ---------------------------------------------------------------------------
+
+model Meeting {
+  id       Int             @id @default(autoincrement())
+  status   MeetingStatus
+  category MeetingCategory @default(general)
+  ownerId  Int             @map("owner_id")
+
+  requestStartTime DateTime? @map("request_start_time")
+  requestEndTime   DateTime? @map("request_end_time")
+  plannedStartTime DateTime  @map("planned_start_time")
+  plannedEndTime   DateTime  @map("planned_end_time")
+  realEndTime      DateTime? @map("real_end_time")
+
+  areaId   Int     @map("area_id")
+  /// snapshot of the area name, or a free-form place typed by the guest
+  areaName String? @map("area_name")
+
+  baseCostPerTime    Int? @map("base_cost_per_time")
+  prolongCostPerTime Int? @map("prolong_cost_per_time")
+  finalCosts         Int? @map("final_costs")
+
+  neededPersonCount  Int  @map("needed_person_count")
+  minimumPersonCount Int? @map("minimum_person_count")
+  castRankId         Int? @map("cast_rank_id")
+
+  description String?
+  /// JSON array of MeetingPreferencesSchema ids the guest asked for.
+  preferences Json?
+
+  conversationId   Int?    @map("conversation_id")
+  operatorMessage  String? @map("operator_message")
+  preConversionId  Int?    @map("pre_conversion_id")
+  postConversionId Int?    @map("post_conversion_id")
+
+  /// Frozen copy of the surcharge/earning settings at order time, so later changes
+  /// to Rails.configuration never alter the accounting of a past order.
+  calculationSettings Json? @map("calculation_settings")
+
+  anonymous      Boolean @default(false)
+  frozenCredits  Int     @default(0) @map("frozen_credits")
+  finalDiscount  Int     @default(0) @map("final_discount")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  owner          User              @relation("MeetingOwner", fields: [ownerId], references: [id])
+  area           Area              @relation(fields: [areaId], references: [id])
+  castRank       CastRank?         @relation(fields: [castRankId], references: [id])
+  conversation   Conversation?     @relation(fields: [conversationId], references: [id])
+  preConversion  CreditConversion? @relation("PreConversion", fields: [preConversionId], references: [id])
+  postConversion CreditConversion? @relation("PostConversion", fields: [postConversionId], references: [id])
+
+  castAttendances CastAttendance[]
+  reviews         Review[]
+
+  @@index([areaId])
+  @@index([castRankId])
+  @@index([conversationId])
+  @@index([ownerId])
+  @@index([postConversionId])
+  @@index([preConversionId])
+  @@index([status])
+  @@index([plannedStartTime])
+  @@map("meetings")
+}
+
+model CastAttendance {
+  id      Int                @id @default(autoincrement())
+  userId  Int                @map("user_id")
+  meetingId Int              @map("meeting_id")
+  role    CastAttendanceRole
+
+  creditTransactionId Int?      @map("credit_transaction_id")
+  startTime           DateTime? @map("start_time")
+  endTime             DateTime? @map("end_time")
+  decisionBy          DecisionBy? @map("decision_by")
+  /// Copy of User#service_fee_permille taken when the cast arrives, so later
+  /// changes to the cast's rate do not retroactively change this order's payout.
+  serviceFeePermille  Int?      @map("service_fee_permille")
+  /// Self-referencing: points at the team leader's attendance row (equal to `id`
+  /// on the leader itself). NULL means the cast joined alone.
+  leaderId            Int?      @map("leader_id")
+  additionalScore     Int       @default(0) @map("additional_score")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user              User               @relation(fields: [userId], references: [id])
+  meeting           Meeting            @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  creditTransaction CreditTransaction? @relation(fields: [creditTransactionId], references: [id])
+  leader            CastAttendance?    @relation("Team", fields: [leaderId], references: [id], onDelete: Cascade)
+  followers         CastAttendance[]   @relation("Team")
+
+  @@unique([meetingId, userId])
+  @@index([creditTransactionId])
+  @@index([leaderId])
+  @@index([userId])
+  @@map("cast_attendances")
+}
+
+/// Operator-entered order drafts (admin only; no user-facing screen).
+model MeetingProposal {
+  id          Int      @id @default(autoincrement())
+  userId      Int?     @map("user_id")
+  description String?
+  areaId      Int?     @map("area_id")
+  startTime   DateTime @map("start_time")
+  duration    Int?
+  castCount   Int?     @map("cast_count")
+  castRankId  Int?     @map("cast_rank_id")
+  pictureData String?  @map("picture_data")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user     User?     @relation(fields: [userId], references: [id])
+  area     Area?     @relation(fields: [areaId], references: [id])
+  castRank CastRank? @relation(fields: [castRankId], references: [id])
+
+  @@index([areaId])
+  @@index([castRankId])
+  @@index([startTime])
+  @@index([userId])
+  @@map("meeting_proposals")
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  reviewerId Int?     @map("reviewer_id")
+  revieweeId Int?     @map("reviewee_id")
+  meetingId  Int?     @map("meeting_id")
+  stars      Int?
+  comment    String?
+  stickerId  Int?     @map("sticker_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  reviewer User?    @relation("Reviewer", fields: [reviewerId], references: [id])
+  reviewee User?    @relation("Reviewee", fields: [revieweeId], references: [id])
+  meeting  Meeting? @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  sticker  Sticker? @relation(fields: [stickerId], references: [id])
+
+  @@unique([reviewerId, revieweeId, meetingId])
+  @@index([meetingId])
+  @@index([revieweeId])
+  @@index([reviewerId])
+  @@index([stickerId])
+  @@map("reviews")
+}
+
+// ---------------------------------------------------------------------------
+// chat
+// ---------------------------------------------------------------------------
+
+model Conversation {
+  id       Int                  @id @default(autoincrement())
+  name     String               @default("Private Chat")
+  category ConversationCategory @default(private)
+
+  pictureUrl     String?   @map("picture_url")
+  /// Denormalised preview of the newest message, maintained by Message#touch_conversation.
+  lastContent    String?   @map("last_content")
+  lastSenderName String?   @map("last_sender_name")
+  lastSenderId   Int?      @map("last_sender_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime? @default(now()) @map("updated_at")
+
+  messages       Message[]
+  speakers       Speaker[]
+  unreadMessages UnreadMessage[]
+  meetings       Meeting[]
+
+  @@index([updatedAt])
+  @@map("conversations")
+}
+
+model Speaker {
+  id               Int      @id @default(autoincrement())
+  conversationId   Int      @map("conversation_id")
+  userId           Int      @map("user_id")
+  /// 'participant' | 'owner' | 'cast' | 'support'
+  role             String   @default("participant")
+  /// Per-speaker override of the conversation title (the partner's nickname in a
+  /// private chat), so each side sees the other's name.
+  conversationName String?  @map("conversation_name")
+  pictureUrl       String?  @map("picture_url")
+  /// true when this speaker blocked the partner: hides the room from their list
+  ignoring         Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([userId])
+  @@map("speakers")
+}
+
+model Message {
+  id             Int             @id @default(autoincrement())
+  senderId       Int             @map("sender_id")
+  conversationId Int             @map("conversation_id")
+  /// Text, pre-rendered HTML for sticker/internal messages, or Shrine JSON for pictures.
+  content        String
+  createdAt      DateTime        @default(now()) @map("created_at")
+  sentAt         DateTime?       @map("sent_at")
+  category       MessageCategory @default(text)
+
+  sender       User         @relation(fields: [senderId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  unreadMessages UnreadMessage[]
+  stickers       Sticker[]
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([sentAt])
+  @@map("messages")
+}
+
+model UnreadMessage {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  messageId      Int?     @map("message_id")
+  conversationId Int      @map("conversation_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  /// true when the recipient blocked the sender: counted nowhere, kept for unblocking
+  ignored        Boolean  @default(false)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message      Message?     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([messageId])
+  @@index([userId])
+  @@map("unread_messages")
+}
+
+// ---------------------------------------------------------------------------
+// timeline posts
+// ---------------------------------------------------------------------------
+
+model Post {
+  id             Int          @id @default(autoincrement())
+  userId         Int          @map("user_id")
+  content        String
+  postLikesCount Int          @default(0) @map("post_likes_count")
+  category       PostCategory @default(public)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postLikes    PostLike[]
+  postPictures PostPicture[]
+
+  @@index([createdAt])
+  @@index([userId])
+  @@map("posts")
+}
+
+model PostLike {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  postId    Int      @map("post_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("post_likes")
+}
+
+model PostPicture {
+  id        Int      @id @default(autoincrement())
+  postId    Int      @map("post_id")
+  /// Shrine attachment metadata.
+  fileData  Json?    @map("file_data")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@map("post_pictures")
+}
+
+// ---------------------------------------------------------------------------
+// gifts (stickers), roulette, event campaigns
+// ---------------------------------------------------------------------------
+
+model StickerTemplate {
+  id             Int     @id @default(autoincrement())
+  pictureUrl     String  @map("picture_url")
+  name           String
+  businessAreaId Int     @map("business_area_id")
+  /// price the guest pays, in credits; 0 marks a free cast-only gift
+  price          Int
+  /// cast's share, either a permille of price or an absolute credit amount
+  transactionPricePermille Int? @map("transaction_price_permille")
+  transactionPriceAbs      Int? @map("transaction_price_abs")
+  active         Boolean @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  businessArea   BusinessArea    @relation(fields: [businessAreaId], references: [id])
+  stickers       Sticker[]
+  rouletteEntries RouletteEntry[]
+  eventCampaigns EventCampaign[]
+
+  @@index([businessAreaId])
+  @@map("sticker_templates")
+}
+
+model Sticker {
+  id                  Int      @id @default(autoincrement())
+  userId              Int      @map("user_id")
+  buyerId             Int      @map("buyer_id")
+  stickerTemplateId   Int      @map("sticker_template_id")
+  messageId           Int?     @map("message_id")
+  creditTransactionId Int?     @map("credit_transaction_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user              User               @relation("StickerRecipient", fields: [userId], references: [id])
+  buyer             User               @relation("StickerBuyer", fields: [buyerId], references: [id])
+  template          StickerTemplate    @relation(fields: [stickerTemplateId], references: [id])
+  message           Message?           @relation(fields: [messageId], references: [id])
+  creditTransaction CreditTransaction? @relation(fields: [creditTransactionId], references: [id])
+
+  reviews Review[]
+
+  @@index([buyerId])
+  @@index([creditTransactionId])
+  @@index([messageId])
+  @@index([stickerTemplateId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("stickers")
+}
+
+model Roulette {
+  id        Int      @id @default(autoincrement())
+  name      String
+  /// credits charged per roll
+  fee       Int
+  sortIndex Int      @map("sort_index")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  rouletteEntries RouletteEntry[]
+  rolls           RouletteRoll[]
+  customerLevels  CustomerLevelsRoulette[]
+
+  @@map("roulettes")
+}
+
+model RouletteEntry {
+  id                Int      @id @default(autoincrement())
+  rouletteId        Int      @map("roulette_id")
+  stickerTemplateId Int      @map("sticker_template_id")
+  /// chance out of 1000; the entries of one roulette should sum to 1000
+  chancePermille    Int      @map("chance_permille")
+  /// chance text shown to the guest, which may differ from chance_permille
+  displayChance     String?  @map("display_chance")
+  /// eligible for Roulette#roll_big, the guaranteed-good slot in the reel
+  highValue         Boolean  @default(false) @map("high_value")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+
+  roulette        Roulette        @relation(fields: [rouletteId], references: [id], onDelete: Cascade)
+  stickerTemplate StickerTemplate @relation(fields: [stickerTemplateId], references: [id])
+  wins            RouletteRoll[]
+
+  @@index([rouletteId])
+  @@index([stickerTemplateId])
+  @@map("roulette_entries")
+}
+
+model RouletteRoll {
+  id             Int      @id @default(autoincrement())
+  rouletteId     Int      @map("roulette_id")
+  payerId        Int      @map("payer_id")
+  granteeId      Int      @map("grantee_id")
+  /// JSON array of the four RouletteEntry ids shown in the reel; the first one wins.
+  outcome        Json
+  winningEntryId Int      @map("winning_entry_id")
+  /// true until the guest confirms and pays for the prize
+  pending        Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  roulette     Roulette      @relation(fields: [rouletteId], references: [id], onDelete: Cascade)
+  payer        User          @relation("RoulettePayer", fields: [payerId], references: [id])
+  grantee      User          @relation("RouletteGrantee", fields: [granteeId], references: [id])
+  winningEntry RouletteEntry @relation(fields: [winningEntryId], references: [id])
+
+  @@index([granteeId])
+  @@index([payerId])
+  @@index([rouletteId])
+  @@index([winningEntryId])
+  @@map("roulette_rolls")
+}
+
+/// habtm join table customer_levels <-> roulettes (no id column in the original).
+model CustomerLevelsRoulette {
+  customerLevelId Int @map("customer_level_id")
+  rouletteId      Int @map("roulette_id")
+
+  customerLevel CustomerLevel @relation(fields: [customerLevelId], references: [id], onDelete: Cascade)
+  roulette      Roulette      @relation(fields: [rouletteId], references: [id], onDelete: Cascade)
+
+  @@id([customerLevelId, rouletteId])
+  @@unique([rouletteId, customerLevelId], map: "roulette_customer_level_index")
+  @@map("customer_levels_roulettes")
+}
+
+/// A limited-time campaign letting cast hand out one free gift per guest per day
+/// and earn credits for it. Added 2026-02-04, extended 2026-03-03 and 2026-04-26.
+model EventCampaign {
+  id                Int      @id @default(autoincrement())
+  name              String
+  stickerTemplateId Int      @map("sticker_template_id")
+  /// credits the cast earns per handed-out gift
+  castRewardAmount  Int      @default(0) @map("cast_reward_amount")
+  castDailyLimit    Int      @default(5) @map("cast_daily_limit")
+  startAt           DateTime @map("start_at")
+  endAt             DateTime @map("end_at")
+  /// Comma-separated StickerTemplate ids counted in the limited-time gift ranking.
+  limitedStickerTemplateIds String? @map("limited_sticker_template_ids")
+  /// 0 disables the milestone. At this running total the cast gets a lump bonus,
+  /// and every gift beyond it pays double.
+  milestoneGiftThreshold Int @default(0) @map("milestone_gift_threshold")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+
+  stickerTemplate StickerTemplate @relation(fields: [stickerTemplateId], references: [id])
+
+  @@index([startAt, endAt])
+  @@map("event_campaigns")
+}
+
+// ---------------------------------------------------------------------------
+// money: credits ledger, conversions, cards, payouts, rewards
+// ---------------------------------------------------------------------------
+
+/// Double-entry-ish credit ledger. A row moves `charged_amount` out of charged_user
+/// and `credited_amount` into credited_user; the two differ by the service fee.
+model CreditTransaction {
+  id Int @id @default(autoincrement())
+
+  /// from
+  chargedUserId  Int? @map("charged_user_id")
+  /// to
+  creditedUserId Int? @map("credited_user_id")
+
+  chargedAmount  Int?    @map("charged_amount")
+  creditedAmount Int?    @map("credited_amount")
+  reason         String?
+  category       CreditTransactionCategory
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  chargedUser  User? @relation("ChargedUser", fields: [chargedUserId], references: [id])
+  creditedUser User? @relation("CreditedUser", fields: [creditedUserId], references: [id])
+
+  creditConversions CreditConversion[]
+  castAttendances   CastAttendance[]
+  stickers          Sticker[]
+  payoutRequests    PayoutRequest[]
+
+  @@index([category])
+  @@index([chargedUserId])
+  @@index([createdAt])
+  @@index([creditedUserId])
+  @@map("credit_transactions")
+}
+
+/// Money <-> credits conversion, i.e. the points where real yen enter or leave.
+/// +amount/+credits = company money up, user credits up (a charge).
+/// -amount/-credits = company money down, user credits down (a payout/chargeback).
+model CreditConversion {
+  id                  Int           @id @default(autoincrement())
+  creditTransactionId Int           @map("credit_transaction_id")
+  userId              Int           @map("user_id")
+  /// yen
+  amount              Int
+  currency            String        @default("jpy")
+  credits             Int?
+  createdAt           DateTime      @default(now()) @map("created_at")
+  /// operator has reconciled this row against the payment provider / bank
+  checked             Boolean       @default(false)
+  /// in/out
+  flowDirection       FlowDirection @map("flow_direction")
+  /// payment provider order number
+  code                String?
+  /// the reversing conversion, for chargebacks
+  inverseConversionId Int?          @map("inverse_conversion_id")
+
+  creditTransaction CreditTransaction @relation(fields: [creditTransactionId], references: [id])
+  user              User              @relation(fields: [userId], references: [id])
+  inverseConversion CreditConversion? @relation("Inverse", fields: [inverseConversionId], references: [id])
+  inverseOf         CreditConversion[] @relation("Inverse")
+
+  companyBalances CompanyBalance[]
+  payoutRequests  PayoutRequest[]
+
+  preOfMeetings  Meeting[] @relation("PreConversion")
+  postOfMeetings Meeting[] @relation("PostConversion")
+
+  @@index([creditTransactionId])
+  @@index([inverseConversionId])
+  @@index([userId])
+  @@map("credit_conversions")
+}
+
+/// Running company cash balance; one row per CreditConversion, newest first.
+model CompanyBalance {
+  id                 Int       @id @default(autoincrement())
+  balance            Int?
+  creditConversionId Int?      @map("credit_conversion_id")
+  createdAt          DateTime? @default(now()) @map("created_at")
+
+  creditConversion CreditConversion? @relation(fields: [creditConversionId], references: [id])
+
+  @@index([creditConversionId])
+  @@map("company_balances")
+}
+
+model CreditCard {
+  id               Int              @id @default(autoincrement())
+  userId           Int              @unique @map("user_id")
+  status           CreditCardStatus @default(invalid)
+  nameOnCard       String?          @map("name_on_card")
+  maskedCardNumber String?          @map("masked_card_number")
+  expiryYear       Int?             @map("expiry_year")
+  expiryMonth      Int?             @map("expiry_month")
+  maskedCardCvv    String?          @map("masked_card_cvv")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("credit_cards")
+}
+
+model CastBankAccount {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique @map("user_id")
+  bankName     String   @map("bank_name")
+  bankNumber   String   @map("bank_number")
+  branchName   String   @map("branch_name")
+  branchNumber String   @map("branch_number")
+  accountType  String   @map("account_type")
+  accountNumber String  @map("account_number")
+  holderName   String   @map("holder_name")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("cast_bank_accounts")
+}
+
+/// Cast-initiated payout application (added 2026-04-26, replacing the fully
+/// automatic payout for the normal monthly flow; "すぐ出金" still uses MakePayout).
+model PayoutRequest {
+  id           Int    @id @default(autoincrement())
+  userId       Int    @map("user_id")
+  /// credits spent by the application
+  creditAmount Int    @map("credit_amount")
+  /// transfer fee in yen
+  fee          Int    @default(220)
+  /// yen actually transferred
+  netAmount    Int    @map("net_amount")
+  fastPayout   Boolean @default(false) @map("fast_payout")
+  /// pending | on_hold | processed | cancelled
+  status       String @default("pending")
+  /// NULL = ordinary bank transfer, 'cash' = handed over in cash,
+  /// 'bank_ng' = bank details unusable. Both non-null values are excluded
+  /// from the bank transfer CSV.
+  handlingType String? @map("handling_type") @db.VarChar(32)
+  /// the 25th of the month the transfer is scheduled for
+  scheduledPayoutOn DateTime @map("scheduled_payout_on") @db.Date
+  processedAt       DateTime? @map("processed_at")
+  creditConversionId Int?     @map("credit_conversion_id")
+  /// Created at application time so the credits leave the balance immediately and
+  /// show up in the history, preventing a double deduction at processing time.
+  creditTransactionId Int?    @map("credit_transaction_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creditConversion  CreditConversion?  @relation(fields: [creditConversionId], references: [id])
+  creditTransaction CreditTransaction? @relation(fields: [creditTransactionId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([scheduledPayoutOn])
+  @@index([handlingType])
+  @@index([creditTransactionId])
+  @@map("payout_requests")
+}
+
+/// Configurable reward rules. A rule applies to a user_type, to everyone
+/// (user_type NULL), or to one user (user_id), where a user-specific rule may
+/// override a general one via override_id.
+model RewardingRule {
+  id         Int                @id @default(autoincrement())
+  category   RewardingCategory
+  userType   String?            @map("user_type")
+  userId     Int?               @map("user_id")
+  overrideId Int?               @map("override_id")
+  policy     RewardingPolicy
+
+  /// flat credits paid out
+  payout         Int @default(0)
+  /// share of turnover in permille (relative_turnover policy)
+  payoutPermille Int @default(0) @map("payout_permille")
+  /// step size: every `each` meetings, or every `each` credits of turnover
+  each           Int @default(0)
+  /// maximum number of payouts; NULL = unlimited, 0 = disabled
+  limit          Int?
+  /// user_type of the *inviter* the rule requires (column name is historical),
+  /// or 'mandatory' to require any inviter
+  inviteeUserType String? @map("invitee_user_type")
+  /// being_reviewed: raise the cast's service_fee_permille to this value
+  serviceFeeReset    Int @default(0) @map("service_fee_reset")
+  serviceFeeIncrease Int @default(0) @map("service_fee_increase")
+  minStars           Int @default(0) @map("min_stars")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  user     User?           @relation(fields: [userId], references: [id])
+  override RewardingRule?  @relation("Override", fields: [overrideId], references: [id])
+  overriddenBy RewardingRule[] @relation("Override")
+
+  @@index([overrideId])
+  @@index([userId])
+  @@map("rewarding_rules")
+}
