@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
-import { l, numberToCredits } from '@/lib';
+import { ADMIN_MEETING_STATUS_LABELS, l, numberToCredits, type MeetingStatus } from '@/lib';
 import { api } from '@/client/admin-api';
 import { useAdminAction, useAdminQuery } from '@/client/admin-hooks';
 import { Badge, DataTable, Field, Loading, Modal, PageTitle, Spinner } from '@/components/admin/ui';
@@ -57,7 +57,7 @@ interface UserDetail {
   assessments: Array<{ id: number; name: string; value: string }>;
   trophies: Array<{ id: number; name: string; imageUrl: string }>;
   payoutRequests: Array<Record<string, unknown> & { id: number; status: string; netAmount: number; creditAmount: number }>;
-  meetings: Array<{ id: number; statusLabel: string; areaName: string; plannedStartTime: string; finalCosts: number | null }>;
+  meetings: Array<{ id: number; status: MeetingStatus; areaName: string; plannedStartTime: string; finalCosts: number | null }>;
   transactions: Array<{
     id: number;
     category: string;
@@ -96,9 +96,9 @@ export function UserDetailPage(): ReactNode {
     await refetch();
   }
 
-  async function softDelete(): Promise<void> {
-    if (!window.confirm('このアカウントを削除しますか？ 復元は「復元」から可能です。')) return;
-    await run(api.delete(`/admin/users/${user.id}`), { invalidate, success: '削除しました' });
+  async function withdraw(): Promise<void> {
+    if (!window.confirm('このアカウントを退会にしますか？ メールアドレスとLINE連携は無効になります。復元は「復元」から可能です。')) return;
+    await run(api.delete(`/admin/users/${user.id}`), { invalidate, success: '退会にしました' });
     await refetch();
   }
 
@@ -146,23 +146,24 @@ export function UserDetailPage(): ReactNode {
             <button type="button" className="btn-secondary" onClick={() => setCreditsOpen(true)}>
               ポイント付与・減算
             </button>
+            {/* 退会 sets ceased (undone by 復元); 凍結 only sets discarded_at (undone by 凍結解除) */}
             {user.accessLevel === 'ceased' ? (
+              <button type="button" className="btn-secondary" onClick={() => void restore()}>
+                復元
+              </button>
+            ) : user.discardedAt ? (
               <button type="button" className="btn-secondary" onClick={() => void unfreeze()}>
                 凍結解除
               </button>
             ) : (
-              <button type="button" className="btn-secondary" onClick={() => void freeze()}>
-                凍結
-              </button>
-            )}
-            {user.discardedAt ? (
-              <button type="button" className="btn-secondary" onClick={() => void restore()}>
-                復元
-              </button>
-            ) : (
-              <button type="button" className="btn-danger" onClick={() => void softDelete()}>
-                削除
-              </button>
+              <>
+                <button type="button" className="btn-secondary" onClick={() => void freeze()}>
+                  凍結
+                </button>
+                <button type="button" className="btn-danger" onClick={() => void withdraw()}>
+                  退会
+                </button>
+              </>
             )}
           </>
         }
@@ -183,7 +184,11 @@ export function UserDetailPage(): ReactNode {
             <div className="min-w-0">
               <p className="font-semibold">{user.nickName}</p>
               <p className="text-[11px] text-slate-500">{user.realName ?? '本名未登録'}</p>
-              {user.discardedAt ? <Badge tone="bad">削除済み</Badge> : null}
+              {user.accessLevel === 'ceased' ? (
+                <Badge tone="bad">退会済み</Badge>
+              ) : user.discardedAt ? (
+                <Badge tone="bad">凍結中</Badge>
+              ) : null}
             </div>
           </div>
 
@@ -309,7 +314,7 @@ export function UserDetailPage(): ReactNode {
             empty="オーダーはありません"
             columns={[
               { header: 'ID', cell: (row) => <Link href={`/meetings/${row.id}`}>{row.id}</Link> },
-              { header: '状態', cell: (row) => row.statusLabel },
+              { header: '状態', cell: (row) => ADMIN_MEETING_STATUS_LABELS[row.status] },
               { header: 'エリア', cell: (row) => row.areaName },
               { header: '開始', cell: (row) => l(row.plannedStartTime) },
               {

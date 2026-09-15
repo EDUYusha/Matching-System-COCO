@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { prisma } from '@/server/lib/prisma';
 import { AppError, ForbiddenError } from '@/server/lib/errors';
 import { hasValidCreditCard } from '@/server/services/users';
-import { activeEventCampaignFor, purchaseEventGift, purchaseSticker } from '@/server/services/stickers';
+import { purchaseEventGift, purchaseSticker } from '@/server/services/stickers';
 import { requireUser } from '@/server/auth/session';
 import { jsonBody, route } from '@/server/http/route';
 export const dynamic = 'force-dynamic';
@@ -36,7 +36,13 @@ export const POST = route<{ id: string; stickerId: string }>(async (request, { p
   }
 
   const template = await prisma.stickerTemplate.findUniqueOrThrow({ where: { id: params.stickerId } });
-  const campaign = await activeEventCampaignFor(template.id);
+  // A template that belongs to an event campaign is an event gift whether or not
+  // the campaign is running. purchaseEventGift then refuses it outside the period
+  // instead of it going through as an ordinary free gift with no daily limit.
+  const campaign = await prisma.eventCampaign.findFirst({
+    where: { stickerTemplateId: template.id },
+    select: { id: true },
+  });
   const isEventChoco = !!campaign;
 
   if (!isEventChoco && !hasValidCreditCard(user)) {

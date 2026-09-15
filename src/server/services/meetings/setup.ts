@@ -4,6 +4,7 @@ import { AppError, InteractorFailure } from '@/server/lib/errors';
 import { createSystemMessage, systemMessageToUser } from '@/server/services/messages';
 import { findConversationWithPartner } from '@/server/services/conversations';
 import { assertNoNegativeBalance } from '@/server/services/credits';
+import { isBookable } from '@/server/services/users';
 import {
   enqueueAutoOpenMeeting,
   enqueueMeetingBroadcast,
@@ -105,11 +106,13 @@ export async function setUpIndividualMeeting(
 
   const cast = await client.user.findUnique({
     where: { id: castId },
-    select: { id: true, userType: true, orderFeePerTime: true, discardedAt: true },
+    select: { id: true, userType: true, accessLevel: true, orderFeePerTime: true, discardedAt: true },
   });
   if (!cast || cast.discardedAt) throw new InteractorFailure('Could not find cast');
   if (cast.userType !== 'cast') throw new InteractorFailure('User is no cast');
   if (cast.orderFeePerTime === null) throw new InteractorFailure('Cast has currently no fee set up');
+  // the profile hides the booking button for these, but the request can be sent directly
+  if (!isBookable(cast)) throw new InteractorFailure('Cast is currently not bookable');
 
   const sharedConversationId = await findConversationWithPartner(meeting.ownerId, cast.id, { onlyPrivate: true });
   if (!sharedConversationId) throw new InteractorFailure('No shared private chat room found');

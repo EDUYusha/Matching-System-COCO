@@ -1,4 +1,4 @@
-import { ACCESS_LEVEL_RANKING, ageFromBirthday, config, isoDate, tokyoParts } from '@/lib';
+import { ACCESS_LEVEL_RANKING, ageFromBirthday, config, dbDate, isoDate, tokyoParts } from '@/lib';
 import { Prisma } from '@prisma/client';
 import type { User } from '@prisma/client';
 import { prisma, transaction, type Tx } from '@/server/lib/prisma';
@@ -367,8 +367,8 @@ export interface CreateUserInput {
 export function birthdayForAge(age: number | null | undefined): Date | null {
   if (age === null || age === undefined || Number.isNaN(Number(age))) return null;
   const today = tokyoParts(new Date());
-  return new Date(
-    `${today.year - Number(age)}-${String(today.month).padStart(2, '0')}-${String(today.day).padStart(2, '0')}T00:00:00+09:00`,
+  return dbDate(
+    `${today.year - Number(age)}-${String(today.month).padStart(2, '0')}-${String(today.day).padStart(2, '0')}`,
   );
 }
 
@@ -421,7 +421,7 @@ export async function createUser(input: CreateUserInput): Promise<{ user: User; 
         birthday,
         birthdayPublished: input.birthdayPublished ?? null,
         // before_create -> self.join_date ||= Date.today
-        joinDate: new Date(`${isoDate(new Date())}T00:00:00+09:00`),
+        joinDate: dbDate(isoDate(new Date())),
         loggedOut: false,
         inviterId,
         businessAreaId: input.businessAreaId ?? null,

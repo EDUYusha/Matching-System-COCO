@@ -1,4 +1,5 @@
 import { idiv, numberToCredits, tokyoStartOfDay } from '@/lib';
+import { stickerSendRefusal } from '@/lib/sticker-rules';
 import type { StickerTemplate } from '@prisma/client';
 import { prisma, transaction, type Tx } from '@/server/lib/prisma';
 import { InteractorFailure } from '@/server/lib/errors';
@@ -98,18 +99,8 @@ export async function giveSticker(input: GiveStickerInput, tx?: Tx): Promise<Giv
   }
   if (!conversationId) throw new InteractorFailure("Couldn't find shared conversations");
 
-  const free = isFreeSticker(template);
-  const buyerIsCast = buyer.userType === 'cast';
-  const buyerCanCustomer =
-    buyer.userType === 'customer' ||
-    buyer.userType === 'inviter' ||
-    buyer.userType === 'operator' ||
-    buyer.userType === 'admin' ||
-    buyer.userType === 'system';
-
-  if (free && !buyerIsCast) throw new InteractorFailure('Only cast can send free stickers');
-  if (!free && !buyerCanCustomer) throw new InteractorFailure('Only customers can send non-free stickers');
-  if (review && !buyerIsCast) throw new InteractorFailure('Only cast can send stickers after meeting');
+  const refusal = stickerSendRefusal(buyer.userType, template.price, { review: !!review });
+  if (refusal) throw new InteractorFailure(refusal);
 
   return transaction(tx, async (t) => {
     const message = review
@@ -185,7 +176,15 @@ export async function purchaseSticker(input: {
   templateId: number;
   conversationId?: number | null;
 }): Promise<GiveStickerResult> {
-  const template = await prisma.stickerTemplate.findUniqueOrThrow({ where: { id: input.templateId } });
+  const [template, buyer] = await Promise.all([
+    prisma.stickerTemplate.findUniqueOrThrow({ where: { id: input.templateId } }),
+    prisma.user.findUniqueOrThrow({ where: { id: input.buyerId }, select: { userType: true } }),
+  ]);
+
+  // GiveSticker refuses the wrong sender too, but only after the auto-charge
+  // below has hit the card; refuse first so a gift that cannot be sent costs nothing
+  const refusal = stickerSendRefusal(buyer.userType, template.price);
+  if (refusal) throw new InteractorFailure(refusal);
 
   await prepareStickerFinances({
     buyerId: input.buyerId,

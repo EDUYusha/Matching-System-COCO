@@ -176,7 +176,13 @@ export function RankingPage(): ReactNode {
           ) : null}
         </>
       ) : (
-        <EmptyState title="この期間のランキングはまだありません" />
+        <EmptyState
+          title={
+            data?.category === 'limited_event' && !data.campaign
+              ? '現在集計中です。'
+              : 'この期間のランキングはまだありません'
+          }
+        />
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import type { MeetingSummary } from '@/lib';
-import { l, numberToCredits } from '@/lib';
+import { ADMIN_MEETING_STATUS_LABELS, l, numberToCredits } from '@/lib';
 import { api } from '@/client/admin-api';
 import { useAdminAction, useAdminQuery } from '@/client/admin-hooks';
 import { Badge, DataTable, Field, Loading, Modal, PageTitle, Spinner } from '@/components/admin/ui';
@@ -66,7 +66,7 @@ export function MeetingDetailPage(): ReactNode {
     <div>
       <PageTitle
         title={`オーダー ${meeting.id}`}
-        subtitle={`${meeting.statusLabel} / ${meeting.category === 'individual' ? '個TOLA' : 'グループ'}`}
+        subtitle={`${ADMIN_MEETING_STATUS_LABELS[meeting.status]} / ${meeting.category === 'individual' ? '個TOLA' : 'グループ'}`}
         actions={
           <>
             {meeting.status === 'in_progress' || meeting.status === 'finished' ? (
@@ -249,7 +249,7 @@ export function MeetingDetailPage(): ReactNode {
       <CancelModal
         open={cancelOpen}
         onClose={() => setCancelOpen(false)}
-        meetingId={meeting.id}
+        meeting={meeting}
         onDone={() => {
           setCancelOpen(false);
           void refetch();
@@ -281,12 +281,12 @@ function Row({ label, value }: { label: string; value: ReactNode }): ReactNode {
 function CancelModal({
   open,
   onClose,
-  meetingId,
+  meeting,
   onDone,
 }: {
   open: boolean;
   onClose: () => void;
-  meetingId: number;
+  meeting: MeetingSummary;
   onDone: () => void;
 }): ReactNode {
   const { run } = useAdminAction();
@@ -298,10 +298,19 @@ function CancelModal({
   });
   const [saving, setSaving] = useState(false);
 
+  // The suggested fees: a share of base price × planned time × needed cast,
+  // without the night or designation surcharges.
+  const fullFee =
+    ((meeting.baseCostPerTime ?? 0) * meeting.plannedLengthMinutes * meeting.neededPersonCount) / 30;
+  const suggestedFees = [10, 50, 100].map((percent) => ({
+    percent,
+    fee: Math.floor((fullFee * percent) / 100),
+  }));
+
   async function submit(): Promise<void> {
     setSaving(true);
     await run(
-      api.post(`/admin/meetings/${meetingId}/cancel`, {
+      api.post(`/admin/meetings/${meeting.id}/cancel`, {
         informParticipants: form.informParticipants,
         chargeBack: form.chargeBack,
         cancelFee: Number(form.cancelFee),
@@ -353,6 +362,18 @@ function CancelModal({
             value={form.cancelFee}
             onChange={(event) => setForm({ ...form, cancelFee: event.target.value })}
           />
+          <div className="mt-2 flex flex-wrap gap-2">
+            {suggestedFees.map(({ percent, fee }) => (
+              <button
+                key={percent}
+                type="button"
+                className="btn-secondary px-2 py-1 text-[12px]"
+                onClick={() => setForm({ ...form, cancelFee: String(fee) })}
+              >
+                {percent}%（{numberToCredits(fee)}）
+              </button>
+            ))}
+          </div>
         </Field>
         <Field label="通知文" hint="空欄なら既定の文面を送ります">
           <textarea

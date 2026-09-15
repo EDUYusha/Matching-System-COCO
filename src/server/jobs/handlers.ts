@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { config, idiv, isoDate, l, PATRON_SHARE_PERMILLE, tokyoStartOfDay } from '@/lib';
+import { config, idiv, isoDate, l, PATRON_SHARE_PERMILLE, tokyoMonthsAgo, tokyoStartOfDay } from '@/lib';
 import { prisma } from '@/server/lib/prisma';
 import { logger } from '@/server/lib/logger';
 import { createSystemMessage, messageRecipients, systemMessageToUser } from '@/server/services/messages';
@@ -603,13 +603,8 @@ coco運営局に、『登録後の感想』をご連絡下さいませ。
 const NAME_SEPARATOR = '␟';
 
 export async function reapInactivePatronsWorker(): Promise<void> {
-  const dayOf = (monthsAgo: number) => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - monthsAgo);
-    return isoDate(date);
-  };
-  const oneMonthAgo = dayOf(1);
-  const twoMonthsAgo = dayOf(2);
+  const oneMonthAgo = isoDate(tokyoMonthsAgo(1));
+  const twoMonthsAgo = isoDate(tokyoMonthsAgo(2));
 
   const rows = await prisma.$queryRaw<
     Array<{ id: number; nick_name: string; last_transaction: Date; first_cast_names: string }>
@@ -624,7 +619,6 @@ export async function reapInactivePatronsWorker(): Promise<void> {
       ON first_casts.first_privately_met_user_id = users.id AND first_casts.first_privately_met_at IS NOT NULL
     WHERE users.user_type IN ('customer'::"UserType", 'inviter'::"UserType")
       AND users.discarded_at IS NULL
-      AND users.first_privately_met_user_id IS NOT NULL
     GROUP BY users.id, users.nick_name
     HAVING DATE(MAX(credit_transactions.created_at)) <= ${oneMonthAgo}::date
   `);

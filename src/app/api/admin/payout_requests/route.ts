@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { dbDate } from '@/lib';
 import { prisma } from '@/server/lib/prisma';
 import { paginate, paginationArgs } from '@/server/lib/pagination';
 import { requireAdmin } from '@/server/api/admin-scope';
@@ -22,7 +23,7 @@ export const GET = route(async (_request, { searchParams }) => {
   const where: Prisma.PayoutRequestWhereInput = {
     ...(query.status ? { status: query.status } : {}),
     ...(query.handlingType ? { handlingType: query.handlingType } : {}),
-    ...(query.scheduledOn ? { scheduledPayoutOn: new Date(`${query.scheduledOn}T00:00:00+09:00`) } : {}),
+    ...(query.scheduledOn ? { scheduledPayoutOn: dbDate(query.scheduledOn) } : {}),
   };
 
   const [requests, totalCount] = await Promise.all([

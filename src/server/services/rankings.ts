@@ -237,15 +237,15 @@ export async function creditsRanking(options: RankingQueryOptions): Promise<{
   const myVisibility = Prisma.sql`((user_settings.no_ranking = false OR user_settings.no_ranking IS NULL) OR inner_query.user_id = ${options.viewerId})`;
 
   const rows = await prisma.$queryRaw<RankingRowRaw[]>(Prisma.sql`
-    SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, user_birthday ASC) AS position
+    SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, user_birthday ASC NULLS FIRST) AS position
     FROM (${grouped(publicVisibility)}) AS ranked
-    ORDER BY score DESC, user_birthday ASC
+    ORDER BY score DESC, user_birthday ASC NULLS FIRST
     LIMIT ${options.limit ?? 30}
   `);
 
   const myRows = await prisma.$queryRaw<RankingRowRaw[]>(Prisma.sql`
     SELECT * FROM (
-      SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, user_birthday ASC) AS position
+      SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, user_birthday ASC NULLS FIRST) AS position
       FROM (${grouped(myVisibility)}) AS ranked_query
     ) AS final_query
     WHERE user_id = ${options.viewerId}
@@ -353,15 +353,15 @@ export async function limitedEventGiftRanking(options: RankingQueryOptions & { s
   `;
 
   const rows = await prisma.$queryRaw<RankingRowRaw[]>(Prisma.sql`
-    SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, user_birthday ASC) AS position
+    SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, user_birthday ASC NULLS FIRST) AS position
     FROM (${grouped(Prisma.sql`(user_settings.no_ranking = false OR user_settings.no_ranking IS NULL) ${hiddenClause}`)}) AS ranked
-    ORDER BY score DESC, user_birthday ASC
+    ORDER BY score DESC, user_birthday ASC NULLS FIRST
     LIMIT ${options.limit ?? 30}
   `);
 
   const myRows = await prisma.$queryRaw<RankingRowRaw[]>(Prisma.sql`
     SELECT * FROM (
-      SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, user_birthday ASC) AS position
+      SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, user_birthday ASC NULLS FIRST) AS position
       FROM (${grouped(
         Prisma.sql`((user_settings.no_ranking = false OR user_settings.no_ranking IS NULL) OR inner_query.user_id = ${options.viewerId})`,
       )}) AS ranked_query
@@ -476,9 +476,9 @@ export async function eventChocoReceivedCountRanking(options: RankingQueryOption
   `;
 
   const ranked = await prisma.$queryRaw<RankingRowRaw[]>(Prisma.sql`
-    SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, user_birthday ASC) AS position
+    SELECT *, ROW_NUMBER() OVER (ORDER BY score DESC, user_birthday ASC NULLS FIRST) AS position
     FROM (${base}) AS ranked
-    ORDER BY score DESC, user_birthday ASC
+    ORDER BY score DESC, user_birthday ASC NULLS FIRST
     LIMIT 1000
   `);
 

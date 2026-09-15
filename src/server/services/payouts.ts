@@ -1,4 +1,4 @@
-import { config, isoDate, PAYOUT_MINIMUM_DATE, tokyoParts, tokyoStartOfMonth, toI } from '@/lib';
+import { config, dbDate, isoDate, PAYOUT_MINIMUM_DATE, tokyoParts, tokyoStartOfMonth, toI } from '@/lib';
 import { prisma, transaction, type Tx } from '@/server/lib/prisma';
 import { AppError, InteractorFailure } from '@/server/lib/errors';
 import { createCreditConversion, createCreditTransaction } from '@/server/services/credits';
@@ -239,7 +239,7 @@ export async function requestPayout(
         netAmount,
         fastPayout: false,
         status: 'pending',
-        scheduledPayoutOn: new Date(`${scheduledOn}T00:00:00+09:00`),
+        scheduledPayoutOn: dbDate(scheduledOn),
         creditTransactionId: ct.id,
       },
     });
@@ -285,11 +285,24 @@ export async function holdPayout(userId: number): Promise<void> {
         netAmount: payableBalance,
         fastPayout: false,
         status: 'on_hold',
-        scheduledPayoutOn: new Date(`${scheduledOn}T00:00:00+09:00`),
+        scheduledPayoutOn: dbDate(scheduledOn),
         creditTransactionId: ct.id,
       },
     });
   });
+}
+
+/**
+ * Admin side: releases a held application (保留解除). The transfer date is worked
+ * out again from the release date; the one from hold time can be a 25th that has
+ * already passed, which the transfer CSV would never pick up.
+ */
+export async function releasePayoutHold(payoutRequestId: number, releasedAt: Date = new Date()): Promise<void> {
+  const { count } = await prisma.payoutRequest.updateMany({
+    where: { id: payoutRequestId, status: 'on_hold' },
+    data: { status: 'pending', scheduledPayoutOn: dbDate(scheduledDateFor(releasedAt)) },
+  });
+  if (count === 0) throw new AppError('保留中の申請ではありません');
 }
 
 /**
@@ -352,7 +365,7 @@ export async function transferablePayoutRequests(scheduledOn?: string) {
     where: {
       status: 'pending',
       handlingType: null,
-      ...(scheduledOn ? { scheduledPayoutOn: new Date(`${scheduledOn}T00:00:00+09:00`) } : {}),
+      ...(scheduledOn ? { scheduledPayoutOn: dbDate(scheduledOn) } : {}),
     },
     include: {
       user: {
