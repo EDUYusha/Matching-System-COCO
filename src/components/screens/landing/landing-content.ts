@@ -16,10 +16,19 @@ export interface ImageSlot {
 
 export const LANDING_IMAGES: {
   hero: ImageSlot;
+  /** the slideshow under 「TOLAとは」, shown one at a time in this order */
+  about: ImageSlot[];
   scenes: Record<'settai' | 'nijikai' | 'nomikai' | 'golf', ImageSlot>;
   usage: Record<'group' | 'individual', ImageSlot>;
 } = {
-  hero: { src: null, alt: 'TOLAのキャスト', hint: 'メインビジュアル・縦長（3:4 以上）' },
+  hero: { src: '/landing/hero-toast.png', alt: '乾杯するゲストとキャスト', hint: 'メインビジュアル・縦長（3:4 以上）' },
+  about: [
+    { src: '/landing/about-cafe.png', alt: 'カフェでスマートフォンを見る二人', hint: '1枚目・カフェ・横長（4:3）' },
+    // the same file as the hero, so it is stored once
+    { src: '/landing/hero-toast.png', alt: '乾杯するふたり', hint: '2枚目・乾杯・横長（4:3）' },
+    { src: '/landing/about-street.png', alt: '夜の街で向かい合う二人', hint: '3枚目・夜の街・横長（4:3）' },
+    { src: '/landing/about-walk.png', alt: '夜の街を並んで歩く二人', hint: '4枚目・夜の街・横長（4:3）' },
+  ],
   scenes: {
     settai: { src: null, alt: '接待の様子', hint: '接待のシーン・横長（16:5）' },
     nijikai: { src: null, alt: '二次会の様子', hint: '二次会のシーン・横長（16:5）' },

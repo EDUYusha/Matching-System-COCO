@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Zen_Maru_Gothic } from 'next/font/google';
 import clsx from 'clsx';
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { AN, config } from '@/lib';
@@ -20,10 +21,8 @@ import {
   MailIcon,
   MapPinIcon,
   MenuIcon,
-  ReceiptIcon,
   ShieldCheckIcon,
   SlidersIcon,
-  UsersIcon,
 } from '@/components/icons';
 import { FAQS } from '@/components/screens/help/faqs';
 import { LANDING_IMAGES, LANDING_REVIEWS, type ImageSlot } from '@/components/screens/landing/landing-content';
@@ -87,11 +86,13 @@ export function LandingPage({ data }: { data: LandingData }): ReactNode {
   ];
 
   return (
-    <div className="min-h-dvh bg-night-950 bg-[radial-gradient(ellipse_at_15%_35%,rgba(230,179,36,.14),transparent_55%),radial-gradient(ellipse_at_85%_90%,rgba(230,179,36,.08),transparent_50%)] text-white lg:grid lg:grid-cols-[minmax(0,1fr)_30rem_minmax(24rem,1fr)]">
+    // diagonal tiles (two crossing sets of joints, each a light line with a faint shadow) over a grey circle,
+    // fixed to the window so the pattern does not stretch over the long page
+    <div className="min-h-dvh bg-white bg-[repeating-linear-gradient(45deg,rgba(255,255,255,.3)_0_1px,rgba(0,0,0,.06)_1px_2px,transparent_2px_24px),repeating-linear-gradient(135deg,rgba(255,255,255,.3)_0_1px,rgba(0,0,0,.06)_1px_2px,transparent_2px_24px),radial-gradient(circle_at_50%_45%,#e4e6e9_0%,#cdd0d5_40%,#a8acb3_100%)] bg-fixed text-ink-900 lg:grid lg:grid-cols-[minmax(0,1fr)_30rem_minmax(24rem,1fr)]">
       <BrandPanel />
 
       {/* placed explicitly: below xl the brand panel is hidden and would otherwise shift the columns */}
-      <div className="relative min-w-0 bg-cream-50 text-ink-900 lg:col-start-2 lg:shadow-[0_0_80px_rgba(0,0,0,.55)]">
+      <div className="relative min-w-0 bg-cream-50 text-ink-900 lg:col-start-2 lg:shadow-[0_0_60px_rgba(17,17,19,.18)]">
         <TopBar onMenu={() => setMenuOpen(true)} />
         <Hero />
         <About />
@@ -118,13 +119,78 @@ export function LandingPage({ data }: { data: LandingData }): ReactNode {
  * Frame: the wide-screen side panels, the top bar, the menu and the sign-up bar
  * ------------------------------------------------------------------------- */
 
-/** Needs the room the 24rem menu column leaves only from xl up. */
+/** A line is made of parts so the words worth stressing can be set a size larger. */
+interface MessagePart {
+  text: string;
+  em?: boolean;
+}
+
+/** What the left column says, one line at a time. Every line is something the app actually does. */
+const BRAND_MESSAGES: MessagePart[][] = [
+  [{ text: '審査を通過した' }, { text: 'キャストだけ', em: true }, { text: 'が登録' }],
+  [{ text: '最短' }, { text: '30分後', em: true }, { text: 'から、あなたの席に' }],
+  [{ text: 'エリア・人数・時間を' }, { text: '選ぶだけ', em: true }],
+  [{ text: 'グループでも、' }, { text: '1対1', em: true }, { text: 'でも' }],
+  [{ text: '接待にも、' }, { text: 'いつもの飲み会', em: true }, { text: 'にも' }],
+  [{ text: '領収書の発行', em: true }, { text: 'にも対応' }],
+  [{ text: '困ったときは、' }, { text: '運営局', em: true }, { text: 'へ' }],
+];
+
+/** How long a line rests, and how slowly it fades out or back in. */
+const HOLD_MS = 6000;
+const FADE_MS = 1200;
+
+// a gently rounded gothic for the left column; next/font self-hosts it and serves only the ranges used
+// `subsets` only picks what is preloaded — the Japanese ranges still come with the font and load on demand
+const roundedGothic = Zen_Maru_Gothic({ subsets: ['latin'], weight: ['500', '700'], display: 'swap' });
+
+const plainText = (parts: MessagePart[]): string => parts.map((part) => part.text).join('');
+
+/**
+ * The left column, from xl up where the menu column leaves room: one line at a time, plain white gothic on
+ * the grey ground. A line rests, fades out, and the next one rises in.
+ */
 function BrandPanel(): ReactNode {
+  const [index, setIndex] = useState(0);
+  const [shown, setShown] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShown(false), HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [index]);
+
+  useEffect(() => {
+    if (shown) return;
+    const timer = window.setTimeout(() => {
+      setIndex((current) => (current + 1) % BRAND_MESSAGES.length);
+      setShown(true);
+    }, FADE_MS);
+    return () => window.clearTimeout(timer);
+  }, [shown]);
+
   return (
-    <aside className="sticky top-0 hidden h-dvh flex-col items-center justify-center self-start px-8 text-center xl:flex">
-      <p className="font-serif text-7xl tracking-[0.08em] text-gold-300">{AN.Short}</p>
-      <p className="mt-5 text-sm tracking-[0.4em] text-white/70">{AN.Kana}</p>
-      <p className="mt-8 text-xs tracking-widest text-white/60">{AN.Both}</p>
+    <aside className="sticky top-0 hidden h-dvh items-center justify-center self-start px-8 xl:flex">
+      {/* the whole list for screen readers; the changing line beside it is decorative */}
+      <ul className="sr-only">
+        {BRAND_MESSAGES.map((parts) => (
+          <li key={plainText(parts)}>{plainText(parts)}</li>
+        ))}
+      </ul>
+      <p
+        aria-hidden
+        className={clsx(
+          roundedGothic.className,
+          'w-full text-center text-2xl leading-relaxed tracking-[0.14em] text-white transition-opacity ease-in-out motion-reduce:transition-none',
+          shown ? 'opacity-100' : 'opacity-0',
+        )}
+        style={{ transitionDuration: `${FADE_MS}ms` }}
+      >
+        {BRAND_MESSAGES[index].map((part, position) => (
+          <span key={`${position}-${part.text}`} className={part.em ? 'text-[1.25em]' : undefined}>
+            {part.text}
+          </span>
+        ))}
+      </p>
     </aside>
   );
 }
@@ -133,16 +199,16 @@ function BrandPanel(): ReactNode {
 function NavPanel({ sections }: { sections: NavSection[] }): ReactNode {
   return (
     <aside className="sticky top-0 hidden max-h-dvh self-start overflow-y-auto lg:col-start-3 lg:block">
-      <div className="ml-auto w-full max-w-[24rem] rounded-bl-2xl border-b border-l border-white/10 bg-white/[0.04] px-6 pb-6 pt-4">
+      <div className="ml-auto w-full max-w-[24rem] rounded-bl-2xl border-b border-l border-white/10 bg-night-950/55 px-6 pb-6 pt-4 shadow-[0_12px_40px_-20px_rgba(17,17,19,.5)] backdrop-blur">
         <SectionNav sections={sections} />
         <div className="mt-6">
           <CtaButtons size="sm" />
         </div>
         <div className="mt-5 space-y-2 text-center text-xs">
-          <Link href="/cast/new" className="block text-gold-200 no-underline hover:underline">
+          <Link href="/cast/new" className="block font-medium text-white no-underline hover:underline">
             キャストとして登録する
           </Link>
-          <Link href="/login" className="block text-white/70 no-underline hover:underline">
+          <Link href="/login" className="block text-white/80 no-underline hover:underline">
             ログインはこちら
           </Link>
         </div>
@@ -176,6 +242,7 @@ function TopBar({ onMenu }: { onMenu: () => void }): ReactNode {
   );
 }
 
+/** The numbered section links, on the dark phone menu and the dark desktop panel. */
 function SectionNav({ sections, onNavigate }: { sections: NavSection[]; onNavigate?: () => void }): ReactNode {
   return (
     <nav aria-label="ページ内メニュー">
@@ -185,9 +252,9 @@ function SectionNav({ sections, onNavigate }: { sections: NavSection[]; onNaviga
             <a
               href={`#${section.id}`}
               onClick={onNavigate}
-              className="flex items-center gap-4 py-3 text-sm text-white/85 no-underline transition hover:text-gold-200"
+              className="flex items-center gap-4 py-3 text-base text-white no-underline transition hover:text-gold-200"
             >
-              <span className="w-6 font-serif text-lg italic text-gold-400">{String(index + 1).padStart(2, '0')}</span>
+              <span className="w-8 font-serif text-xl text-gold-400">{String(index + 1).padStart(2, '0')}</span>
               {section.label}
             </a>
           </li>
@@ -286,10 +353,11 @@ function BottomBar(): ReactNode {
  * ------------------------------------------------------------------------- */
 
 const CTA_BASE =
-  'flex w-full items-center justify-center gap-2 rounded-xl font-bold no-underline shadow-lg shadow-black/20 transition hover:brightness-110';
+  'flex w-full items-center justify-center gap-2 rounded-xl font-medium no-underline shadow-lg shadow-black/20 transition hover:brightness-110';
 // LINE's own green, as the login screen's LINE button uses
 const CTA_LINE = 'bg-[#06c755] text-white';
-const CTA_GOLD = 'bg-gradient-to-r from-gold-600 via-gold-400 to-gold-600 text-night-950';
+// white on gold needs the faint shadow to stay legible over the light middle of the gradient
+const CTA_GOLD = 'bg-gradient-to-r from-gold-600 via-gold-400 to-gold-600 text-white [text-shadow:0_1px_2px_rgba(0,0,0,.35)]';
 
 /** SessionsController#sns_login_redirection: a new LINE user continues to sign-up. */
 function useLineStart(): { start: () => void; error: string | null } {
@@ -415,6 +483,7 @@ function SectionHeading({
       ) : null}
       <h2
         className={clsx(
+          roundedGothic.className,
           'relative mt-1 text-[1.6rem] font-bold leading-snug tracking-wide',
           dark ? 'text-white' : 'text-night-950',
         )}
@@ -446,21 +515,23 @@ function Hero(): ReactNode {
         aria-hidden
       />
       <div className="relative px-6 pb-8">
-        <p className="inline-flex items-center gap-1.5 rounded-full border border-gold-300/40 bg-night-950/60 px-3 py-1 text-[11px] font-bold text-gold-200 backdrop-blur">
-          <BadgeCheckIcon className="h-3.5 w-3.5" strokeWidth={2} />
-          審査を通過したキャストのみ登録
-        </p>
-        <h1 className="mt-4 text-[1.9rem] font-bold leading-[1.4] tracking-wide text-white">
-          飲み会・接待に、
+        {/* the words carrying the promise are set a size larger than the particles around them */}
+        <h1
+          className={clsx(
+            roundedGothic.className,
+            'text-[1.9rem] font-bold leading-[1.45] tracking-[0.08em] text-white',
+          )}
+        >
+          特別な
           <br />
-          審査を通過した
+          <span className="text-[1.2em]">パートナー</span>と、
           <br />
-          キャストを。
+          <span className="text-[1.2em]">上質な時間</span>を
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-white/80">
-          エリア・人数・時間を選ぶだけ。
+        <p className={clsx(roundedGothic.className, 'mt-4 text-sm leading-[1.9] tracking-[0.06em] text-white/80')}>
+          エリア・人数・時間を選ぶだけで、
           <br />
-          最短30分後から合流できます。
+          <span className="text-[1.15em]">最短30分後</span>から合流できます
         </p>
         <div className="mt-6">
           <CtaButtons />
@@ -470,51 +541,79 @@ function Hero(): ReactNode {
   );
 }
 
-function About(): ReactNode {
-  const points: Array<{ icon: Icon; title: string; body: string }> = [
-    {
-      icon: BadgeCheckIcon,
-      title: '審査を通過したキャスト',
-      body: '面接と本人確認を経たキャストだけが、オーダーに参加しています。',
-    },
-    {
-      icon: UsersIcon,
-      title: 'グループと1対1、2つの呼び方',
-      body: '複数のキャストを募集する「グループTOLA」と、チャットで話したキャストを指名する「個TOLA」から選べます。',
-    },
-    {
-      icon: ReceiptIcon,
-      title: '領収書の発行に対応',
-      body: 'ご利用後はポイント履歴から領収書を発行できます。',
-    },
-  ];
+/** How long a slide is held, and how long it takes to cross-fade into the next one. */
+const SLIDE_HOLD_MS = 4000;
+const SLIDE_FADE_MS = 700;
 
+/**
+ * The slideshow under 「TOLAとは」: one image at a time, advancing on its own and wrapping round for ever.
+ * The slides are stacked and cross-faded rather than moved on a track, so the loop has no seam to hide.
+ */
+function AboutSlides(): ReactNode {
+  const slides = LANDING_IMAGES.about;
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % slides.length), SLIDE_HOLD_MS);
+    return () => window.clearInterval(timer);
+  }, [slides.length]);
+
+  return (
+    <div className="mt-10">
+      <div
+        role="group"
+        aria-roledescription="スライド"
+        aria-label={`${AN.Short}の様子`}
+        className="relative aspect-[7/6] overflow-hidden bg-night-900 shadow-[0_10px_30px_-18px_rgba(17,17,19,.35)]"
+      >
+        {slides.map((slot, position) => (
+          <div
+            key={slot.hint}
+            aria-hidden={position !== index}
+            className={clsx(
+              'absolute inset-0 transition-opacity ease-in-out motion-reduce:transition-none',
+              position === index ? 'opacity-100' : 'opacity-0',
+            )}
+            style={{ transitionDuration: `${SLIDE_FADE_MS}ms` }}
+          >
+            <Photo slot={slot} />
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 flex justify-center gap-2">
+        {slides.map((slot, position) => (
+          <button
+            key={slot.hint}
+            type="button"
+            onClick={() => setIndex(position)}
+            aria-label={`${position + 1}枚目を表示`}
+            aria-current={position === index}
+            className={clsx(
+              'h-1.5 rounded-full transition-all',
+              position === index ? 'w-6 bg-gold-600' : 'w-1.5 bg-ink-300 hover:bg-ink-400',
+            )}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function About(): ReactNode {
   return (
     <Section id="about" tone="cream">
       <SectionHeading en="About" eyebrow="エンタメマッチングサイト">
         {AN.Short}とは
       </SectionHeading>
-      <p className="mt-6 text-center text-[13px] leading-relaxed text-ink-700">
-        {AN.Short}（{AN.Kana}）は、飲み会・接待・二次会などのシーンに、
-        <br className="hidden min-[400px]:inline" />
-        審査を通過したキャストをマッチングするサービスです。
+      <p className="mt-6 text-center text-[13px] leading-relaxed text-night-950">
+        ビジネス会食・ゴルフ・イベント同行など、
+        <br />
+        あらゆるシーンで厳選されたキャストと
+        <br />
+        マッチングできるプレミアムサービスです。
       </p>
-      <ul className="mt-10 space-y-4">
-        {points.map((point) => (
-          <li
-            key={point.title}
-            className="flex items-start gap-4 rounded-2xl bg-white p-5 shadow-[0_10px_30px_-18px_rgba(17,17,19,.35)]"
-          >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-night-900 text-gold-300">
-              <point.icon className="h-6 w-6" />
-            </span>
-            <div>
-              <h3 className="text-base font-bold text-gold-800">{point.title}</h3>
-              <p className="mt-1 text-[13px] leading-relaxed text-ink-700">{point.body}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <AboutSlides />
     </Section>
   );
 }
