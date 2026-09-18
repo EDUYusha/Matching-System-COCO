@@ -12,13 +12,15 @@ export interface ImageSlot {
   src: string | null;
   alt: string;
   hint: string;
+  /** CSS object-position, for photos cropped into a frame of another shape, e.g. '50% 30%' to keep a face in view */
+  position?: string;
 }
 
 export const LANDING_IMAGES: {
   hero: ImageSlot;
   /** the slideshow under 「TOLAとは」, shown one at a time in this order */
   about: ImageSlot[];
-  scenes: Record<'settai' | 'nijikai' | 'nomikai' | 'golf', ImageSlot>;
+  scenes: Record<'lunch' | 'golf' | 'event' | 'dinner', ImageSlot>;
   usage: Record<'group' | 'individual', ImageSlot>;
 } = {
   hero: { src: '/landing/hero-toast.png', alt: '乾杯するゲストとキャスト', hint: 'メインビジュアル・縦長（3:4 以上）' },
@@ -30,10 +32,31 @@ export const LANDING_IMAGES: {
     { src: '/landing/about-walk.png', alt: '夜の街を並んで歩く二人', hint: '4枚目・夜の街・横長（4:3）' },
   ],
   scenes: {
-    settai: { src: null, alt: '接待の様子', hint: '接待のシーン・横長（16:5）' },
-    nijikai: { src: null, alt: '二次会の様子', hint: '二次会のシーン・横長（16:5）' },
-    nomikai: { src: null, alt: '飲み会の様子', hint: '飲み会のシーン・横長（16:5）' },
-    golf: { src: null, alt: 'ゴルフの様子', hint: 'ゴルフのシーン・横長（16:5）' },
+    // the photos from the existing LP (lp.co-co.today); the strips are 16:5, so each keeps the faces in its band
+    lunch: {
+      src: '/landing/scene-lunch.jpg',
+      alt: 'カフェで笑顔を見せる女性',
+      hint: 'カフェ・ビジネスランチ・横長（16:5）',
+      position: '50% 25%',
+    },
+    golf: {
+      src: '/landing/scene-golf.jpg',
+      alt: 'ゴルフクラブを持って笑う女性',
+      hint: 'ゴルフ同行・横長（16:5）',
+      position: '50% 35%',
+    },
+    event: {
+      src: '/landing/scene-event.jpg',
+      alt: 'パーティーでカードゲームを楽しむ女性たち',
+      hint: 'イベント同行・横長（16:5）',
+      position: '50% 25%',
+    },
+    dinner: {
+      src: '/landing/scene-dinner.jpg',
+      alt: 'グラスを手に談笑する男女',
+      hint: '会食・食事会・横長（16:5）',
+      position: '50% 40%',
+    },
   },
   usage: {
     group: { src: null, alt: 'グループTOLAの様子', hint: '複数人の席・横長（4:3）' },

@@ -9,11 +9,9 @@ import { numberToCredits } from '@/client/format';
 import { api } from '@/client/api';
 import {
   ArrowRightIcon,
-  BadgeCheckIcon,
   BlockIcon,
   ChatIcon,
   ChevronDownIcon,
-  ClockIcon,
   CloseIcon,
   EyeIcon,
   HeadsetIcon,
@@ -22,7 +20,6 @@ import {
   MapPinIcon,
   MenuIcon,
   ShieldCheckIcon,
-  SlidersIcon,
 } from '@/components/icons';
 import { FAQS } from '@/components/screens/help/faqs';
 import { LANDING_IMAGES, LANDING_REVIEWS, type ImageSlot } from '@/components/screens/landing/landing-content';
@@ -97,7 +94,7 @@ export function LandingPage({ data }: { data: LandingData }): ReactNode {
         <Hero />
         <About />
         <Scenes data={data} />
-        <Reasons data={data} />
+        <Reasons />
         <Pricing data={data} />
         <Steps />
         <Safety />
@@ -404,7 +401,15 @@ function CtaButtons({ size = 'md' }: { size?: 'md' | 'sm' }): ReactNode {
 function Photo({ slot, label = 'center' }: { slot: ImageSlot; label?: 'center' | 'top' | 'left' | 'right' }): ReactNode {
   if (slot.src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={slot.src} alt={slot.alt} loading="lazy" className="h-full w-full object-cover" />;
+    return (
+      <img
+        src={slot.src}
+        alt={slot.alt}
+        loading="lazy"
+        className="h-full w-full object-cover"
+        style={slot.position ? { objectPosition: slot.position } : undefined}
+      />
+    );;
   }
   return (
     <div
@@ -433,10 +438,13 @@ function Photo({ slot, label = 'center' }: { slot: ImageSlot; label?: 'center' |
 function Section({
   id,
   tone,
+  className,
   children,
 }: {
   id?: string;
   tone: 'cream' | 'white' | 'dark';
+  /** extra classes, e.g. a gradient laid over the tone's flat colour */
+  className?: string;
   children: ReactNode;
 }): ReactNode {
   return (
@@ -445,6 +453,7 @@ function Section({
       className={clsx(
         'relative scroll-mt-14 overflow-hidden px-5 py-16',
         { cream: 'bg-cream-50 text-ink-900', white: 'bg-white text-ink-900', dark: 'bg-night-900 text-white' }[tone],
+        className,
       )}
     >
       {children}
@@ -621,11 +630,32 @@ function About(): ReactNode {
 function Scenes({ data }: { data: LandingData }): ReactNode {
   // golf is only offered where an area has a golf price type
   const offersGolf = data.areas.some((area) => area.ranks.some((rank) => rank.name.includes('ゴルフ')));
+  // the four scenes the existing TOLA site lists, in its order and words
   const scenes = [
-    { slot: LANDING_IMAGES.scenes.settai, title: '接待', body: '取引先との会食を、和やかに' },
-    { slot: LANDING_IMAGES.scenes.nijikai, title: '二次会', body: '一次会のあとも、楽しい時間を' },
-    { slot: LANDING_IMAGES.scenes.nomikai, title: '飲み会', body: '仲間との席を、いつもより特別に' },
-    ...(offersGolf ? [{ slot: LANDING_IMAGES.scenes.golf, title: 'ゴルフ', body: 'ラウンドから会食まで' }] : []),
+    {
+      slot: LANDING_IMAGES.scenes.lunch,
+      title: 'カフェ・ビジネスランチ',
+      body: '日中のランチや休憩時間に、会話を楽しめる同席者と過ごす上質な時間。',
+    },
+    ...(offersGolf
+      ? [
+          {
+            slot: LANDING_IMAGES.scenes.golf,
+            title: 'ゴルフ同行',
+            body: 'ゴルフラウンドに明るく爽やかなキャストが同行。プレーをより楽しく演出します。',
+          },
+        ]
+      : []),
+    {
+      slot: LANDING_IMAGES.scenes.event,
+      title: 'イベント同行',
+      body: 'パーティーや各種イベントへの同行。場を華やかに彩り、特別なシーンを演出します。',
+    },
+    {
+      slot: LANDING_IMAGES.scenes.dinner,
+      title: '会食・食事会',
+      body: '男女が集う上質な食事会に。会話が弾み、忘れられないひとときをお届けします。',
+    },
   ];
 
   return (
@@ -650,11 +680,12 @@ function Scenes({ data }: { data: LandingData }): ReactNode {
               />
               <div
                 className={clsx(
-                  'absolute inset-y-0 flex flex-col justify-center px-6 text-white',
+                  // capped so the two-sentence descriptions stay over the dark half of the gradient
+                  'absolute inset-y-0 flex max-w-[75%] flex-col justify-center px-6 text-white',
                   flip ? 'right-0 items-end text-right' : 'left-0',
                 )}
               >
-                <p className="font-serif text-xs italic tracking-widest text-gold-200">
+                <p className="font-serif text-xs tracking-widest text-gold-200">
                   SCENE {String(index + 1).padStart(2, '0')}
                 </p>
                 <p className="mt-0.5 text-xl font-bold">{scene.title}</p>
@@ -668,49 +699,46 @@ function Scenes({ data }: { data: LandingData }): ReactNode {
   );
 }
 
-function Reasons({ data }: { data: LandingData }): ReactNode {
-  const typeNames = (data.areas[0]?.ranks ?? []).filter((rank) => !rank.fixedPrice).map((rank) => rank.name);
-  const reasons: Array<{ icon: Icon; title: string; body: string }> = [
+function Reasons(): ReactNode {
+  // the four reasons the existing TOLA site gives (lp.co-co.today), in its order and words
+  const reasons: Array<{ title: string; body: string }> = [
     {
-      icon: BadgeCheckIcon,
-      title: '審査を通過したキャストだけ',
-      body: '面接・本人確認・同意書の提出を終えたキャストだけが、オーダーに参加できます。',
+      title: '厳選されたキャスト',
+      body: '容姿・会話力・マナーの三拍子が揃った、厳格な審査を通過した魅力的なキャストのみが登録。どのシーンでも安心してお任せいただけます。',
     },
     {
-      icon: ClockIcon,
-      title: '最短30分後に合流',
-      body: 'エリア・人数・時間を指定するだけ。今夜の飲み会にも間に合います。',
+      title: '多彩なシーンに対応',
+      body: '会食・ゴルフ・ビジネスランチ・イベント同行など、お好きなシチュエーションでご利用いただけます。',
     },
     {
-      icon: SlidersIcon,
-      title: 'タイプとご希望で募集',
-      body: `${typeNames.length ? `料金タイプ（${typeNames.join('・')}）と、` : ''}「話し上手」「英語OK」などのご希望を指定して募集し、集まったキャストから選べます。`,
+      title: '全国でご利用可能',
+      body: `${AN.Short}では全国各地でご利用いただけるよう、サービスの普及活動を積極的に展開中。出張先でも安心してご利用いただけます。`,
     },
     {
-      icon: ChatIcon,
-      title: '専用チャットで連絡',
-      body: 'マッチングするとオーダー専用のチャットができ、お店の名前や到着時間をそのまま伝えられます。',
+      title: '安心の決済システム',
+      body: '決済はSBIグループ・株式会社AXES Paymentを採用。明朗な料金体系で安心・安全にご利用いただけます。※当日の飲食代は別途ご負担ください。',
     },
   ];
 
   return (
-    <Section id="reasons" tone="dark">
-      <SectionHeading en="Reasons" tone="dark">
-        {AN.Short}が選ばれる
-        <br />
-        4つの理由
+    <Section
+      id="reasons"
+      tone="dark"
+      // three flat diagonal bands with hard edges, dark grey at the top-left to light grey at the bottom-right
+      className="bg-[linear-gradient(135deg,#46494f_0%,#46494f_34%,#5d6066_34%,#5d6066_67%,#777a81_67%,#777a81_100%)]"
+    >
+      <SectionHeading en="Reasons" eyebrow="WHY TOLA" tone="dark">
+        {AN.Short}が選ばれる理由
       </SectionHeading>
       <ol className="mt-10 space-y-4">
         {reasons.map((reason, index) => (
-          <li key={reason.title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-            <div className="flex items-start justify-between gap-3">
-              <span className="font-serif text-4xl italic leading-none text-gold-400">
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <reason.icon className="h-7 w-7 shrink-0 text-gold-300" />
-            </div>
-            <h3 className="mt-3 text-lg font-bold leading-snug text-white">{reason.title}</h3>
-            <p className="mt-2 text-[13px] leading-relaxed text-white/75">{reason.body}</p>
+          // a plain white card on the dark diagonal ground
+          <li key={reason.title} className="bg-white p-4 shadow-[0_18px_40px_-24px_rgba(0,0,0,.7)]">
+            <span className="block font-serif text-3xl leading-none text-gold-700">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <h3 className="mt-2 text-lg font-bold leading-snug text-night-950">{reason.title}</h3>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-ink-700">{reason.body}</p>
           </li>
         ))}
       </ol>
