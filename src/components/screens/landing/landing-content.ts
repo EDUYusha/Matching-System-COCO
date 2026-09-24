@@ -21,7 +21,6 @@ export const LANDING_IMAGES: {
   /** the slideshow under 「TOLAとは」, shown one at a time in this order */
   about: ImageSlot[];
   scenes: Record<'lunch' | 'golf' | 'event' | 'dinner', ImageSlot>;
-  usage: Record<'group' | 'individual', ImageSlot>;
 } = {
   hero: { src: '/landing/hero-toast.png', alt: '乾杯するゲストとキャスト', hint: 'メインビジュアル・縦長（3:4 以上）' },
   about: [
@@ -57,10 +56,6 @@ export const LANDING_IMAGES: {
       hint: '会食・食事会・横長（16:5）',
       position: '50% 40%',
     },
-  },
-  usage: {
-    group: { src: null, alt: 'グループTOLAの様子', hint: '複数人の席・横長（4:3）' },
-    individual: { src: null, alt: '個TOLAの様子', hint: '1対1の食事・横長（4:3）' },
   },
 };
 

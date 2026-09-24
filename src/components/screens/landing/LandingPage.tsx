@@ -766,21 +766,29 @@ function Reasons(): ReactNode {
   );
 }
 
+/**
+ * Prices, as plain tables. Every figure is read from the same places the order form charges from: the price
+ * types and the cast's own rate come from the database, the surcharges and the point packages from config.
+ */
 function Pricing({ data }: { data: LandingData }): ReactNode {
   const [areaId, setAreaId] = useState(data.areas[0]?.id ?? 0);
   const area = data.areas.find((candidate) => candidate.id === areaId) ?? data.areas[0];
   const intervalRanks = area?.ranks.filter((rank) => !rank.fixedPrice) ?? [];
   const fixedRanks = area?.ranks.filter((rank) => rank.fixedPrice) ?? [];
+  /** 30 minutes per billing interval, billed in 5-minute blocks once an order runs over */
+  const interval = config.cost_time_interval;
+  const block = interval / config.cost_time_interval_divider;
+  const prolongMultiplier = config.individual_meeting_prolong_multiplier_permille / 1000;
 
   return (
     <Section id="pricing" tone="cream">
-      <SectionHeading en="Price" eyebrow="シーンに合わせて">
-        2つの使い方と料金
+      <SectionHeading en="Price" eyebrow="PRICE">
+        使い方と料金
       </SectionHeading>
       <p className="mt-6 text-center text-[13px] leading-relaxed text-ink-700">
-        席を華やかにしたい時は「グループTOLA」、
+        ご利用は2通り。複数のキャストを募集する「グループTOLA」と、
         <br />
-        気になるキャストとゆっくり話したい時は「個TOLA」。
+        チャットから直接ご指名いただく「個TOLA」です。
       </p>
 
       {data.areas.length > 1 ? (
@@ -803,130 +811,150 @@ function Pricing({ data }: { data: LandingData }): ReactNode {
         </div>
       ) : null}
 
-      <PlanCard
-        en="Group"
-        title="グループTOLA"
-        lead="複数のキャストを呼びたい時に"
-        photo={LANDING_IMAGES.usage.group}
-        body="人数・エリア・時間・料金タイプを指定して募集。集まったキャストから選んで確定します。"
-      >
-        <PriceTable
-          caption={`料金（30分ごと）${area && data.areas.length > 1 ? `・${area.name}` : ''}`}
-          rows={[
-            ...intervalRanks.map((rank) => ({
-              key: rank.id,
-              label: rank.name,
-              value: numberToCredits(rank.baseCostPerTime),
-              sub: `${pointsInYen(rank.baseCostPerTime)}相当`,
-            })),
-            ...fixedRanks.map((rank) => ({
-              key: rank.id,
-              label: rank.name,
-              value: numberToCredits(rank.baseCostPerTime),
-              sub: '1回あたり',
-            })),
-          ]}
-          notes={['延長は1.3倍のポイント消費になります。', '00:00〜06:00にかかる場合は深夜手当が加算されます。']}
-        />
-      </PlanCard>
+      <DataTable
+        caption={`グループTOLA（キャスト1名・${interval}分あたり）`}
+        head={['料金タイプ', `${interval}分`, `延長${block}分`]}
+        rows={[
+          ...intervalRanks.map((rank) => ({
+            key: String(rank.id),
+            cells: [
+              rank.name,
+              numberToCredits(rank.baseCostPerTime),
+              numberToCredits(Math.floor(rank.prolongCostPerTime / config.cost_time_interval_divider)),
+            ],
+          })),
+          ...fixedRanks.map((rank) => ({
+            key: String(rank.id),
+            cells: [`${rank.name}（1回）`, numberToCredits(rank.baseCostPerTime), '—'],
+          })),
+        ]}
+        notes={[
+          `合計は「料金 × キャスト人数 × ${interval}分単位の時間」です。`,
+          `${intervalRanks[0] ? `${numberToCredits(intervalRanks[0].baseCostPerTime)}なら${pointsInYen(intervalRanks[0].baseCostPerTime)}相当です。` : ''}`,
+        ].filter(Boolean)}
+      />
 
-      <PlanCard
-        en="Private"
-        title="個TOLA"
-        lead="気になるキャストと1対1で"
-        photo={LANDING_IMAGES.usage.individual}
-        body="「探す」でキャストを見つけて「いいね」。チャットで日程を相談して、そのまま依頼できます。"
-      >
-        <PriceTable
-          caption="料金（30分ごと）"
-          rows={[
-            {
-              key: 'fee',
-              label: '料金の目安',
-              value: data.individualFee
+      <DataTable
+        caption="個TOLA（キャスト1名）"
+        head={['項目', '内容']}
+        rows={[
+          {
+            key: 'fee',
+            cells: [
+              `料金（${interval}分あたり）`,
+              data.individualFee
                 ? `${numberToCredits(data.individualFee.min)}〜${numberToCredits(data.individualFee.max)}`
                 : 'キャストごとに設定',
-              sub: data.individualFee ? 'キャストが設定した料金です' : undefined,
-            },
-          ]}
-          notes={['延長は1.3倍のポイント消費になります。', '個TOLAに深夜手当はありません。']}
-        />
-      </PlanCard>
+            ],
+          },
+          { key: 'min', cells: ['最低利用時間', '60分'] },
+          { key: 'prolong', cells: [`延長（${block}分ごと）`, `通常料金の${prolongMultiplier}倍`] },
+          { key: 'extras', cells: ['深夜手当・指名料', 'かかりません'] },
+        ]}
+        notes={['料金はキャストご本人が設定しています。']}
+      />
 
-      <p className="mt-6 text-center text-[11px] text-ink-500">
-        ※ 1,000P＝{config.thousand_points_in_yen.toLocaleString('ja-JP')}円（税込）でご購入いただけます。
+      <DataTable
+        caption="追加料金"
+        head={['項目', '内容']}
+        rows={[
+          { key: 'prolong', cells: [`延長（${block}分ごと）`, `${block}分以上の超過で発生`] },
+          { key: 'night', cells: ['深夜手当', `キャスト1名 ${numberToCredits(config.night_surcharge)}`] },
+          { key: 'nomination', cells: ['指名料', `キャスト1名 ${numberToCredits(config.cast_selection_surcharge)}`] },
+        ]}
+        notes={[
+          `延長は、予定終了から${block}分以上過ぎた場合にかかります。`,
+          '深夜手当は、00:00〜06:00にかかる場合にお支払いいただきます。',
+          '指名料は、キャストをご指名の場合にかかります。',
+          '深夜手当と指名料は、グループTOLAのみにかかります。',
+        ]}
+      />
+
+      <DataTable
+        caption="ポイントのご購入"
+        head={['ポイント', 'ボーナス', 'お支払い']}
+        rows={config.charge_steps.map((step, index) => {
+          const bonus = config.charge_steps_boni[index];
+          return {
+            key: String(step),
+            cells: [
+              numberToCredits(step),
+              bonus ? `+${numberToCredits(bonus)}` : '—',
+              pointsInYen(step),
+            ],
+          };
+        })}
+        notes={[
+          `1,000P＝${config.thousand_points_in_yen.toLocaleString('ja-JP')}円（税込）です。`,
+          'ボーナスを含む付与ポイントは、1,000P単位に切り上げられます。',
+          '残高が不足する場合は、ご登録のカードから1,000P単位で自動チャージされます。',
+        ]}
+      />
+
+      <p className="mt-8 text-[11px] leading-relaxed text-ink-500">
+        ※ キャストの飲食代・施設のご利用料は、お客様のご負担となります。
       </p>
     </Section>
   );
 }
 
-function PlanCard({
-  en,
-  title,
-  lead,
-  body,
-  photo,
-  children,
-}: {
-  en: string;
-  title: string;
-  lead: string;
-  body: string;
-  photo: ImageSlot;
-  children: ReactNode;
-}): ReactNode {
-  return (
-    <article className="relative mt-8 overflow-hidden rounded-2xl bg-white shadow-[0_18px_40px_-24px_rgba(17,17,19,.45)]">
-      <span aria-hidden className="absolute inset-x-0 top-0 z-10 h-1 bg-gradient-to-r from-gold-600 via-gold-400 to-gold-600" />
-      <header className="relative px-5 pb-4 pt-6 text-center">
-        <p
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-2 select-none font-serif text-5xl italic text-night-950/[0.05]"
-        >
-          {en}
-        </p>
-        <h3 className="relative text-xl font-bold text-night-950">{title}</h3>
-        <p className="relative mt-1 text-xs font-bold text-gold-700">{lead}</p>
-      </header>
-      <div className="aspect-[4/3]">
-        <Photo slot={photo} />
-      </div>
-      <p className="px-5 pt-4 text-[13px] leading-relaxed text-ink-700">{body}</p>
-      <div className="p-5 pt-4">{children}</div>
-    </article>
-  );
-}
-
-function PriceTable({
+/** A plain table: a dark caption bar, a header row, then rows with the first column as the label. */
+function DataTable({
   caption,
+  head,
   rows,
   notes,
 }: {
   caption: string;
-  rows: Array<{ key: string | number; label: string; value: string; sub?: string }>;
-  notes: string[];
+  head: string[];
+  rows: Array<{ key: string; cells: ReactNode[] }>;
+  notes?: string[];
 }): ReactNode {
   return (
-    <div>
-      <div className="overflow-hidden rounded-xl border border-cream-200">
-        <p className="bg-night-900 py-2 text-center text-xs font-bold tracking-wider text-gold-200">{caption}</p>
-        <dl className="divide-y divide-cream-200">
+    <div className="mt-8">
+      <table className="w-full border-collapse bg-white text-left shadow-[0_12px_30px_-22px_rgba(17,17,19,.45)]">
+        <caption className="bg-gold-700 px-4 py-3 text-center text-xs font-bold tracking-wider text-white">
+          {caption}
+        </caption>
+        <thead>
+          <tr className="border-b border-cream-200">
+            {head.map((label, index) => (
+              <th
+                key={label}
+                scope="col"
+                className={clsx('px-4 py-3 text-[11px] font-bold text-ink-500', index > 0 && 'text-right')}
+              >
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-cream-200">
           {rows.map((row) => (
-            <div key={row.key} className="flex items-center gap-3 px-4 py-3">
-              <dt className="flex-1 text-[13px] font-bold text-ink-800">{row.label}</dt>
-              <dd className="text-right">
-                <span className="text-lg font-bold text-night-950">{row.value}</span>
-                {row.sub ? <span className="block text-[11px] text-ink-500">{row.sub}</span> : null}
-              </dd>
-            </div>
+            <tr key={row.key}>
+              {row.cells.map((cell, index) => (
+                <td
+                  key={index}
+                  className={clsx(
+                    'px-4 py-3 align-middle text-[13px] leading-relaxed',
+                    // labels stay on one line so a bracket never breaks across rows
+                    index === 0 ? 'whitespace-nowrap font-bold text-ink-800' : 'text-right text-night-950',
+                  )}
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
           ))}
-        </dl>
-      </div>
-      <ul className="mt-3 space-y-1 text-[11px] leading-relaxed text-ink-500">
-        {notes.map((note) => (
-          <li key={note}>※ {note}</li>
-        ))}
-      </ul>
+        </tbody>
+      </table>
+      {notes?.length ? (
+        <ul className="mt-3 space-y-1 text-[11px] leading-relaxed text-ink-500">
+          {notes.map((note) => (
+            <li key={note}>※ {note}</li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
