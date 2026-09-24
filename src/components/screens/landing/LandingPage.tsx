@@ -732,13 +732,26 @@ function Reasons(): ReactNode {
       </SectionHeading>
       <ol className="mt-10 space-y-4">
         {reasons.map((reason, index) => (
-          // a plain white card on the dark diagonal ground
-          <li key={reason.title} className="bg-white p-4 shadow-[0_18px_40px_-24px_rgba(0,0,0,.7)]">
-            <span className="block font-serif text-3xl leading-none text-gold-700">
-              {String(index + 1).padStart(2, '0')}
-            </span>
-            <h3 className="mt-2 text-lg font-bold leading-snug text-night-950">{reason.title}</h3>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-ink-700">{reason.body}</p>
+          // a white card with its icon on the left of the text
+          <li
+            key={reason.title}
+            className="flex items-center gap-5 bg-white p-4 shadow-[0_18px_40px_-24px_rgba(0,0,0,.7)]"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/landing/reason-${index + 1}.png`}
+              alt=""
+              aria-hidden
+              loading="lazy"
+              className="h-[88px] w-[88px] shrink-0 object-contain"
+            />
+            <div className="min-w-0 flex-1">
+              <span className="block font-serif text-3xl leading-none text-gold-700">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <h3 className="mt-2 text-lg font-bold leading-snug text-night-950">{reason.title}</h3>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-ink-700">{reason.body}</p>
+            </div>
           </li>
         ))}
       </ol>
