@@ -1,11 +1,10 @@
-import { z } from 'zod';
 import { destroyBlocking } from '@/server/services/blockings';
-import { route } from '@/server/http/route';
+import { railsToInt } from '@/server/http/params';
+import { internalApiRoute, railsOk } from '@/server/http/internal-api';
 export const dynamic = 'force-dynamic';
 
-/** internal-api: DELETE /internal_api/blockings/:id */
-export const DELETE = route<{ id: string }>(async (_request, { params: routeParams }) => {
-  const params = z.object({ id: z.coerce.number() }).parse(routeParams);
-  await destroyBlocking(params.id);
-  return { ok: true };
+/** internal-api: DELETE /internal_api/blockings/:id — empty 204, as the old action rendered nothing */
+export const DELETE = internalApiRoute<{ id: string }>(async (_request, { params }) => {
+  await destroyBlocking(railsToInt(params.id));
+  return railsOk(204);
 });

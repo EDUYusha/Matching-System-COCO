@@ -156,9 +156,9 @@ function ThreadModal({ conversationId, onClose }: { conversationId: number; onCl
           with_broadcast: true,
           ...(asSystem ? {} : {}),
         }),
+        // the internal API answers with an empty body, as the Rails one did
       }).then(async (response) => {
         if (!response.ok) throw new Error(await response.text());
-        return response.json() as Promise<{ ok: boolean }>;
       }),
       { success: '送信しました' },
     );

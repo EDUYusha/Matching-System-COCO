@@ -1,40 +1,54 @@
-import { z } from 'zod';
 import { prisma } from '@/server/lib/prisma';
-import { AppError } from '@/server/lib/errors';
 import { setupCastSelection } from '@/server/services/meetings/selection';
-import { jsonBody, route } from '@/server/http/route';
+import { asParams, railsToInt, requestParams } from '@/server/http/params';
+import {
+  internalApiRoute,
+  railsBadRequest,
+  railsServerError,
+  RailsParameterMissing,
+  RailsRecordNotFound,
+} from '@/server/http/internal-api';
 export const dynamic = 'force-dynamic';
 
-/** internal-api: POST /internal_api/meetings/:meetingId/add_cast */
-export const POST = route<{ meetingId: string }>(async (request, { params: routeParams }) => {
-  const params = z.object({ meetingId: z.coerce.number() }).parse(routeParams);
-  const body = z
-    .object({
-      cast_attendance: z.object({
-        user_id: z.coerce.number(),
-        role: z.enum(['attending', 'unconfirmed', 'requested', 'out']),
-        additional_score: z.coerce.number().optional(),
-      }),
-    })
-    .parse(await jsonBody(request));
+const ROLES = ['attending', 'unconfirmed', 'requested', 'out'];
 
-  const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id: params.meetingId } });
+/**
+ * internal-api: POST /internal_api/meetings/:meetingId/add_cast
+ *
+ * `cast_attendance[...]`, as the attendance panel posts it. The old action wrapped
+ * its body in `rescue => e`, so every failure is a 500 carrying the Ruby message —
+ * including the enum setter's `'bogus' is not a valid role` — except the duplicate,
+ * which it rendered itself with a 400, and the missing parameter group, which
+ * `params.require` turned into a 400 before the action ran.
+ */
+export const POST = internalApiRoute<{ meetingId: string }>(async (request, { params }) => {
+  const body = await requestParams(request);
+  if (body.cast_attendance === undefined) throw new RailsParameterMissing('cast_attendance');
+  const attendance = asParams(body.cast_attendance);
+
+  const role = attendance.role;
+  if (typeof role !== 'string' || !ROLES.includes(role)) {
+    throw railsServerError(`'${role === undefined ? '' : String(role)}' is not a valid role`);
+  }
+
+  const meeting = await prisma.meeting.findUnique({ where: { id: railsToInt(params.meetingId) } });
+  if (!meeting) throw new RailsRecordNotFound();
 
   try {
     await prisma.castAttendance.create({
       data: {
         meetingId: meeting.id,
-        userId: body.cast_attendance.user_id,
-        role: body.cast_attendance.role,
-        additionalScore: body.cast_attendance.additional_score ?? 0,
+        userId: railsToInt(attendance.user_id),
+        role: role as never,
+        additionalScore: railsToInt(attendance.additional_score),
         decisionBy: 'operator',
       },
     });
   } catch (error) {
     if ((error as { code?: string }).code === 'P2002') {
-      throw new AppError('キャストは既に参加します');
+      throw railsBadRequest('キャストは既に参加します');
     }
-    throw error;
+    throw railsServerError((error as Error).message);
   }
 
   // safe to call repeatedly: it only acts while the status is still 'requested'
@@ -42,6 +56,4 @@ export const POST = route<{ meetingId: string }>(async (request, { params: route
     where: { meetingId: meeting.id, role: { not: 'out' } },
   });
   if (activeCount >= meeting.neededPersonCount) await setupCastSelection(meeting.id);
-
-  return { ok: true };
 });

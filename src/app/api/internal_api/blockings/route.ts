@@ -1,13 +1,21 @@
-import { z } from 'zod';
 import { createBlocking } from '@/server/services/blockings';
-import { jsonBody, route } from '@/server/http/route';
+import { asParams, railsToInt, requestParams } from '@/server/http/params';
+import { internalApiRoute, railsOk, RailsParameterMissing } from '@/server/http/internal-api';
 export const dynamic = 'force-dynamic';
 
-/** internal-api: POST /internal_api/blockings */
-export const POST = route(async (request) => {
-  const body = z
-    .object({ blocking: z.object({ user_id: z.coerce.number(), target_id: z.coerce.number() }) })
-    .parse(await jsonBody(request));
-  await createBlocking(body.blocking.user_id, body.blocking.target_id);
-  return { ok: true };
+/**
+ * internal-api: POST /internal_api/blockings
+ *
+ * `blocking[user_id]` and `blocking[target_id]`, and nothing else was permitted.
+ * The old action rendered nothing at all, which Rails sent as an empty 204, and
+ * it used `save!`, so a validation failure was an unrescued exception — a 500
+ * with Rails' error page rather than a JSON body.
+ */
+export const POST = internalApiRoute(async (request) => {
+  const body = await requestParams(request);
+  if (body.blocking === undefined) throw new RailsParameterMissing('blocking');
+  const blocking = asParams(body.blocking);
+
+  await createBlocking(railsToInt(blocking.user_id), railsToInt(blocking.target_id));
+  return railsOk(204);
 });

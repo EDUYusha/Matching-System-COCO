@@ -1,27 +1,27 @@
-import { z } from 'zod';
 import { prisma } from '@/server/lib/prisma';
-import { AppError } from '@/server/lib/errors';
 import { completeMeeting, markMeetingFinished } from '@/server/services/meetings/lifecycle';
-import { jsonBody, route } from '@/server/http/route';
+import { railsPresence, railsToInt, railsToTime, requestParams } from '@/server/http/params';
+import { internalApiRoute, railsBadRequest, RailsRecordNotFound } from '@/server/http/internal-api';
 export const dynamic = 'force-dynamic';
 
 /** internal-api: POST /internal_api/meetings/:meetingId/finish */
-export const POST = route<{ meetingId: string }>(async (request, { params: routeParams }) => {
-  const params = z.object({ meetingId: z.coerce.number() }).parse(routeParams);
-  const body = z
-    .object({ end_time: z.string().optional(), finish_message: z.string().optional() })
-    .parse(await jsonBody(request) ?? {});
+export const POST = internalApiRoute<{ meetingId: string }>(async (request, { params }) => {
+  // the panel passes both of these in the query string, either of them empty
+  const body = await requestParams(request);
+  const givenEndTime = railsToTime(body.end_time);
+  const finishMessage = railsPresence(body.finish_message);
 
-  const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id: params.meetingId } });
+  const meeting = await prisma.meeting.findUnique({ where: { id: railsToInt(params.meetingId) } });
+  if (!meeting) throw new RailsRecordNotFound();
   if (!['in_progress', 'finished'].includes(meeting.status)) {
-    throw new AppError('Meeting must have status in_progress or finished');
+    throw railsBadRequest('Meeting must have status in_progress or finished');
   }
 
   const attendances = await prisma.castAttendance.findMany({
     where: { meetingId: meeting.id, role: { not: 'out' } },
   });
   const endTime =
-    (body.end_time ? new Date(body.end_time) : null) ??
+    givenEndTime ??
     attendances
       .map((attendance) => attendance.endTime)
       .filter((time): time is Date => !!time)
@@ -36,12 +36,7 @@ export const POST = route<{ meetingId: string }>(async (request, { params: route
   // a re-finish must not send the wrap-up messages twice
   const noMessages = meeting.status === 'finished';
 
-  await markMeetingFinished(meeting.id, {
-    noMessages,
-    finishMessage: body.finish_message || null,
-    endTime,
-  });
+  await markMeetingFinished(meeting.id, { noMessages, finishMessage, endTime });
 
   await completeMeeting(meeting.id);
-  return { ok: true };
 });

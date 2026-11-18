@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { config } from '@/lib';
 import { prisma } from '@/server/lib/prisma';
 import {
@@ -10,13 +9,14 @@ import {
   JOBS,
   removeMeetingJobs
 } from '@/server/jobs/queues';
-import { route } from '@/server/http/route';
+import { railsToInt } from '@/server/http/params';
+import { internalApiRoute, RailsRecordNotFound } from '@/server/http/internal-api';
 export const dynamic = 'force-dynamic';
 
 /** internal-api: POST /internal_api/meetings/:meetingId/reschedule_jobs */
-export const POST = route<{ meetingId: string }>(async (_request, { params: routeParams }) => {
-  const params = z.object({ meetingId: z.coerce.number() }).parse(routeParams);
-  const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id: params.meetingId } });
+export const POST = internalApiRoute<{ meetingId: string }>(async (_request, { params }) => {
+  const meeting = await prisma.meeting.findUnique({ where: { id: railsToInt(params.meetingId) } });
+  if (!meeting) throw new RailsRecordNotFound();
 
   if (meeting.status === 'requested' || meeting.status === 'cast_selectable') {
     await removeMeetingJobs(meeting.id, [
@@ -82,6 +82,4 @@ export const POST = route<{ meetingId: string }>(async (_request, { params: rout
       }
     }
   }
-
-  return { ok: true };
 });
