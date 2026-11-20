@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/server/lib/prisma';
 import { setUpMeeting } from '@/server/services/meetings/setup';
 import { prepareMeetingFinances } from '@/server/services/meetings/finances';
-import { initCalculationSettings } from '@/server/services/meetings/model';
+import { initCalculationSettings, recordCosts } from '@/server/services/meetings/model';
 import {
   asParams,
   railsFlag,
@@ -67,6 +67,29 @@ export const POST = internalApiRoute(async (request) => {
       ? []
       : [railsToInt(preferencesParam)];
 
+  /*
+   * Meeting#record_costs is a before_create on the model, and creating a
+   * meeting here goes straight to prisma, so it never ran: a meeting made by
+   * the panel or the cron host kept null costs, and every later calculation
+   * read the rank's prices live instead. Change a rank's price between the
+   * estimate and the settlement and the guest was charged an amount other
+   * than the one they were quoted.
+   */
+  const castRankId = optionalInt('cast_rank_id');
+  const castRank = castRankId
+    ? await prisma.castRank.findUnique({
+        where: { id: castRankId },
+        select: { baseCostPerTime: true, prolongCostPerTime: true },
+      })
+    : null;
+  const costs = recordCosts(
+    {
+      baseCostPerTime: optionalInt('base_cost_per_time'),
+      prolongCostPerTime: optionalInt('prolong_cost_per_time'),
+    },
+    castRank,
+  );
+
   const meeting = await prisma.meeting.create({
     data: {
       status: status as never,
@@ -74,7 +97,7 @@ export const POST = internalApiRoute(async (request) => {
       ownerId: ownerId as number,
       areaId: areaId as number,
       areaName: railsPresence(given.area_name),
-      castRankId: optionalInt('cast_rank_id'),
+      castRankId,
       neededPersonCount: neededPersonCount as number,
       description: railsPresence(given.description),
       operatorMessage: railsPresence(given.operator_message),
@@ -83,8 +106,8 @@ export const POST = internalApiRoute(async (request) => {
       // the presence check above has already rejected a blank or unparseable one
       plannedStartTime: plannedStartTime as Date,
       plannedEndTime: plannedEndTime as Date,
-      baseCostPerTime: optionalInt('base_cost_per_time'),
-      prolongCostPerTime: optionalInt('prolong_cost_per_time'),
+      baseCostPerTime: costs.baseCostPerTime,
+      prolongCostPerTime: costs.prolongCostPerTime,
       preferences,
       calculationSettings: initCalculationSettings(settings) as unknown as Prisma.InputJsonValue,
     },

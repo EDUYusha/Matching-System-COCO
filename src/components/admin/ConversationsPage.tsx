@@ -92,7 +92,7 @@ export function ConversationsPage(): ReactNode {
                     <div className="text-[11px]">
                       {row.speakers.map((speaker) => (
                         <p key={speaker.userId}>
-                          <Link href={`/users/${speaker.user.id}`}>{speaker.user.nickName}</Link>
+                          <Link href={`/admin/users/${speaker.user.id}`}>{speaker.user.nickName}</Link>
                           <span className="ml-1 text-slate-400">{speaker.role}</span>
                         </p>
                       ))}
@@ -138,13 +138,18 @@ function ThreadModal({ conversationId, onClose }: { conversationId: number; onCl
     `/admin/conversations/${conversationId}/messages`,
   );
   const [draft, setDraft] = useState('');
-  const [asSystem, setAsSystem] = useState(true);
   const [sending, setSending] = useState(false);
 
   async function send(): Promise<void> {
     if (!draft.trim()) return;
     setSending(true);
-    // the internal API posts as the system user, or as a given sender
+    /*
+     * Always as the system user (運営局). The endpoint's other mode needs a
+     * `sender_id`, and this screen has no way to choose one — there used to be
+     * a 「運営局（システム）として送信」 checkbox here whose two branches both
+     * spread an empty object, so it never did anything whichever way it was
+     * set. A control that cannot work is worse than no control.
+     */
     await run(
       fetch('/internal_api/messages', {
         method: 'POST',
@@ -154,7 +159,6 @@ function ThreadModal({ conversationId, onClose }: { conversationId: number; onCl
           content: draft,
           with_unread: true,
           with_broadcast: true,
-          ...(asSystem ? {} : {}),
         }),
         // the internal API answers with an empty body, as the Rails one did
       }).then(async (response) => {
@@ -188,10 +192,7 @@ function ThreadModal({ conversationId, onClose }: { conversationId: number; onCl
             onChange={(event) => setDraft(event.target.value)}
           />
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-[12px]">
-              <input type="checkbox" checked={asSystem} onChange={(event) => setAsSystem(event.target.checked)} />
-              運営局（システム）として送信
-            </label>
+            <span className="text-[12px] text-ink-500">運営局（システム）として送信されます</span>
             <button type="button" className="btn-primary" onClick={() => void send()} disabled={sending || !draft.trim()}>
               {sending ? <Spinner /> : null}
               送信する
@@ -210,7 +211,7 @@ function ThreadModal({ conversationId, onClose }: { conversationId: number; onCl
             .map((message) => (
               <li key={message.id} className="rounded border border-slate-200 p-2">
                 <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                  <Link href={`/users/${message.sender.id}`}>{message.sender.nickName}</Link>
+                  <Link href={`/admin/users/${message.sender.id}`}>{message.sender.nickName}</Link>
                   <Badge>{message.category}</Badge>
                   <span>{l(message.sentAt ?? message.createdAt)}</span>
                   <button type="button" className="ml-auto text-rose-600" onClick={() => void destroy(message.id)}>

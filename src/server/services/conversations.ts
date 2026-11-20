@@ -103,6 +103,30 @@ export async function createPrivateConversation(userAId: number, userBId: number
   });
 }
 
+/**
+ * The rules notice a private room opens with.
+ *
+ * It was written inline in POST /conversations and nowhere else, so the rooms
+ * created from the signup cast picks — the first rooms most users ever see —
+ * opened without it. It is not posted from `createPrivateConversation`
+ * itself because the callers each send their own 「liked」 marker first, and
+ * the notice belongs after it.
+ */
+export const PRIVATE_ROOM_RULES_WARNING =
+  'チャットルームでは、個人情報や連絡が取れるSNSやアプリ等の案内、他社競合ギャラ飲サービスについてのお話は禁止させて頂いております。';
+
+export async function postPrivateRoomRulesWarning(conversationId: number, tx?: Tx) {
+  return createSystemMessage(
+    {
+      conversationId,
+      content: PRIVATE_ROOM_RULES_WARNING,
+      withUnread: true,
+      withBroadcast: true,
+    },
+    tx,
+  );
+}
+
 /** Conversation.create_for_meeting! — the group room opened once an order matches. */
 export async function createMeetingConversation(
   meeting: { id: number; ownerId: number; summary: string },

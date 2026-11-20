@@ -129,12 +129,12 @@ export function UsersPage(): ReactNode {
               rows={data?.items ?? []}
               rowKey={(row) => row.id}
               columns={[
-                { header: 'ID', cell: (row) => <Link href={`/users/${row.id}`}>{row.id}</Link> },
+                { header: 'ID', cell: (row) => <Link href={`/admin/users/${row.id}`}>{row.id}</Link> },
                 {
                   header: 'ニックネーム',
                   cell: (row) => (
                     <div>
-                      <Link href={`/users/${row.id}`}>{row.nickName}</Link>
+                      <Link href={`/admin/users/${row.id}`}>{row.nickName}</Link>
                       {row.discardedAt ? <Badge tone="bad">削除</Badge> : null}
                       {row.online ? <Badge tone="ok">在線</Badge> : null}
                       {row.realName ? <p className="text-[11px] text-slate-400">{row.realName}</p> : null}

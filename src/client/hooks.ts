@@ -80,6 +80,7 @@ export function useApiQuery<T>(
 export function useCableSubscription(handler?: (payload: CablePayload) => void): void {
   const queryClient = useQueryClient();
   const pushToast = useAppStore((state) => state.pushToast);
+  const router = useRouter();
 
   useEffect(() => {
     return onCable((payload) => {
@@ -105,12 +106,28 @@ export function useCableSubscription(handler?: (payload: CablePayload) => void):
           void queryClient.invalidateQueries({ queryKey: ['meetings'] });
           void queryClient.invalidateQueries({ queryKey: ['counters'] });
           break;
+        case 'ajax_call':
+          /*
+           * The Rails client answered this by fetching ajax_url and showing
+           * whatever came back — in practice the review dialog. Nothing handled
+           * it here, so OpenReviewModalWorker ran, published, and the review
+           * screen never opened: the only way to a review was to find it.
+           *
+           * Its one sender (broadcastOpenReviewModal) sends the review
+           * screen's own path, so navigating is the equivalent. Only a plain
+           * in-app GET path is followed — the payload comes off a socket, and
+           * `//host` would otherwise leave the site.
+           */
+          if (payload.ajax_method.toUpperCase() === 'GET' && /^\/[^/]/.test(payload.ajax_url)) {
+            router.push(payload.ajax_url);
+          }
+          break;
         default:
           break;
       }
       handler?.(payload);
     });
-  }, [queryClient, pushToast, handler]);
+  }, [queryClient, pushToast, handler, router]);
 }
 
 /**

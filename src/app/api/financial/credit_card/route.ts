@@ -3,7 +3,7 @@ import { prisma } from '@/server/lib/prisma';
 import { AppError } from '@/server/lib/errors';
 import { logger } from '@/server/lib/logger';
 import { urlsafeBase64 } from '@/server/lib/auth';
-import { accountDurationCode, enroll3ds } from '@/server/services/payment-gateway';
+import { accountDurationCode, enroll3ds, with3dsStubCallback } from '@/server/services/payment-gateway';
 import { hasValidCreditCard } from '@/server/services/users';
 import { env } from '@/server/config/env';
 import { requirePermission } from '@/server/auth/session';
@@ -84,13 +84,19 @@ export const POST = route(async (request) => {
 
   logger.info({ userId: user.id, xid: result.xid }, 'register_credit_card: got 3DS iframe url');
 
+  const termUrl = `${env.publicUrl}/api/financial/parres`;
+
   return {
     ok: true,
     status: 'pending',
     md: result.xid,
     threeDs2Flag: '2',
-    termUrl: `${env.publicUrl}/api/financial/parres`,
-    iframeUrl: result.iframeUrl ? decodeURIComponent(result.iframeUrl) : null,
+    termUrl,
+    iframeUrl: with3dsStubCallback(
+      result.iframeUrl ? decodeURIComponent(result.iframeUrl) : null,
+      termUrl,
+      result.xid,
+    ),
     pareq: 'PaReq',
     flash: { type: 'notice', message: 'クレジットカードを登録開始しました。' },
     accountDurationCode: accountDurationCode(card.createdAt),

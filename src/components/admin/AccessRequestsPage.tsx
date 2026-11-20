@@ -69,7 +69,7 @@ export function AccessRequestsPage(): ReactNode {
               cell: (row) =>
                 row.user ? (
                   <div>
-                    <Link href={`/users/${row.user.id}`}>{row.user.nickName}</Link>
+                    <Link href={`/admin/users/${row.user.id}`}>{row.user.nickName}</Link>
                     <p className="text-[11px] text-slate-400">
                       ID {row.user.id}
                       {row.user.age !== null ? ` ・ ${row.user.age}歳` : ''}

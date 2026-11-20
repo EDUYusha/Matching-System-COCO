@@ -20,7 +20,9 @@ export const orderFormSchema = z.object({
   areaId: z.coerce.number().int().positive(),
   areaName: z.string().optional().nullable(),
   neededPersonCount: z.coerce.number().int().positive(),
-  minimumPersonCount: z.coerce.number().int().optional().nullable(),
+  // 0 is the "指定なし" sentinel the consumers already handle; negative was
+  // simply stored and then compared against a head count
+  minimumPersonCount: z.coerce.number().int().nonnegative().optional().nullable(),
   castRankId: z.coerce.number().int().positive(),
   timeSpan: z.coerce.number().int(),
   startTime: z.string().optional().nullable(),

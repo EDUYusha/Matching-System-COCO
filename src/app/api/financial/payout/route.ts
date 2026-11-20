@@ -34,7 +34,10 @@ export const GET = route(async (_request) => {
     scheduledDate: scheduledDateFor(new Date()),
     fastScheduledDate: fastScheduledDateFor(new Date()),
     costs: computeCastPayout(balances.payableBalance, false),
-    fastCosts: computeCastPayout(balances.payableBalance, true),
+    // requestFastPayout ignores the monthly restriction and pays out the whole
+    // balance, so pricing the preview off payableBalance showed a fee and a
+    // transfer amount that did not match what the button then did
+    fastCosts: computeCastPayout(balances.creditBalance, true),
     minNetAmount: config.payout_min_net_amount,
     baseFee: config.payout_base_fee,
     bankAccount: account

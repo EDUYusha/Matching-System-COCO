@@ -87,8 +87,8 @@ export function PayoutPage(): ReactNode {
       </div>
 
       {!data.bankAccount ? (
-        <div className="m-4 card border-red-500/40 bg-red-950/30">
-          <p className="text-xs text-red-200">出金には振込先口座の登録が必要です。</p>
+        <div className="m-4 card border-red-200 bg-red-50">
+          <p className="text-xs text-red-600">出金には振込先口座の登録が必要です。</p>
           <Link href="/financial/bank_account" className="btn-primary mt-3 w-full no-underline">
             口座を登録する
           </Link>

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { prisma } from '@/server/lib/prisma';
 import { AppError } from '@/server/lib/errors';
 import { logger } from '@/server/lib/logger';
-import { enroll3ds } from '@/server/services/payment-gateway';
+import { enroll3ds, with3dsStubCallback } from '@/server/services/payment-gateway';
 import { allChargeSteps, chargeStepFor } from '@/server/services/buy-credits';
 import { chargeCallbackSignature } from '@/server/lib/charge-callback';
 import { env } from '@/server/config/env';
@@ -59,15 +59,21 @@ export const POST = route(async (request) => {
     throw new AppError(`エラーが発生しました。\n ${result.raw}`, { redirect: '/financial/charge' });
   }
 
+  const termUrl =
+    `${env.publicUrl}/api/financial/parres_buy?charge_amount=${step.yen}&credits=${step.total}` +
+    `&sig=${chargeCallbackSignature(result.xid ?? '', step.yen, step.total)}`;
+
   return {
     ok: true,
     status: 'pending',
     md: result.xid,
     threeDs2Flag: '2',
-    termUrl:
-      `${env.publicUrl}/api/financial/parres_buy?charge_amount=${step.yen}&credits=${step.total}` +
-      `&sig=${chargeCallbackSignature(result.xid ?? '', step.yen, step.total)}`,
-    iframeUrl: result.iframeUrl ? decodeURIComponent(result.iframeUrl) : null,
+    termUrl,
+    iframeUrl: with3dsStubCallback(
+      result.iframeUrl ? decodeURIComponent(result.iframeUrl) : null,
+      termUrl,
+      result.xid ?? null,
+    ),
     pareq: 'PaReq',
     chargeAmount: step.yen,
     credits: step.total,

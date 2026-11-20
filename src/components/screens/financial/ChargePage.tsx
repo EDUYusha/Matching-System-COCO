@@ -91,8 +91,8 @@ export function ChargePage(): ReactNode {
       />
 
       {!hasCard ? (
-        <div className="m-4 card border-red-500/40 bg-red-950/30">
-          <p className="text-xs text-red-200">
+        <div className="m-4 card border-red-200 bg-red-50">
+          <p className="text-xs text-red-600">
             ポイントの購入にはクレジットカードの登録が必要です。
           </p>
           <Link href="/financial/credit_card" className="btn-primary mt-3 w-full no-underline">

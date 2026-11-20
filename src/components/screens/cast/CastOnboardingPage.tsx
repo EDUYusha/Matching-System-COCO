@@ -39,7 +39,7 @@ export function CastOnboardingPage(): ReactNode {
         <PageHeader title="アカウント" back="/user/settings" />
         <div className="px-6 py-12 text-center">
           <p className="text-4xl">🔒</p>
-          <p className="mt-3 text-sm text-red-200">このアカウントは現在ご利用いただけません。</p>
+          <p className="mt-3 text-sm text-red-600">このアカウントは現在ご利用いただけません。</p>
           <p className="mt-1 text-[11px] text-ink-500">お問い合わせは運営局までご連絡ください。</p>
           <Link href="/conversations" className="btn-secondary mt-6 w-full no-underline">
             運営局に問い合わせる

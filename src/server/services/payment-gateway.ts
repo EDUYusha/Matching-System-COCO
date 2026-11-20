@@ -233,6 +233,29 @@ export async function enroll3ds(params: {
   };
 }
 
+/**
+ * Points the development 3-D Secure stub at the callback it should post to.
+ *
+ * In production the gateway calls `termUrl` itself. With the stub there is no
+ * gateway, and the stub cannot work the url out on its own: the purchase
+ * callback's url carries a signature over the xid that the enrol call has only
+ * just returned. So the two callers hand it over once they have built it.
+ *
+ * Outside the simulated environments the iframe url is the issuer's and is
+ * returned untouched.
+ */
+export function with3dsStubCallback(
+  iframeUrl: string | null,
+  termUrl: string,
+  md: string | null,
+): string | null {
+  if (!iframeUrl || !simulateExternalCalls) return iframeUrl;
+  const url = new URL(iframeUrl, env.publicUrl);
+  url.searchParams.set('term_url', termUrl);
+  if (md) url.searchParams.set('md', md);
+  return url.toString();
+}
+
 export interface Authenticate3dsResult {
   status: string | null;
   code: string | null;

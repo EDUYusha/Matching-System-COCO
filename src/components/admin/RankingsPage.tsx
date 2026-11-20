@@ -77,7 +77,7 @@ export function RankingsPage(): ReactNode {
             empty="対象がありません"
             columns={[
               { header: '順位', className: 'text-right', cell: (row) => row.position },
-              { header: 'ユーザー', cell: (row) => <Link href={`/users/${row.userId}`}>{row.nickName}</Link> },
+              { header: 'ユーザー', cell: (row) => <Link href={`/admin/users/${row.userId}`}>{row.nickName}</Link> },
               { header: '種別', cell: (row) => row.userType },
               { header: '称号', cell: (row) => row.guestTitle ?? '—' },
               {

@@ -95,9 +95,10 @@ export async function wishToAttendToMeeting(input: {
   if (meeting.castRankId && meeting.castRank) {
     const validCastLevelIds = new Set(meeting.castRank.castLevels.map((link) => link.castLevelId));
     for (const user of everyone) {
-      // test fixtures have cast without a level; real cast always has one
-      if (user.castLevelId === null) continue;
-      if (!validCastLevelIds.has(user.castLevelId)) {
+      // no level satisfies no rank. Skipping the check for a null level — which
+      // is what this did, for the sake of the test fixtures — let an unranked
+      // cast into an order whose rank sets the price the guest is charged
+      if (user.castLevelId === null || !validCastLevelIds.has(user.castLevelId)) {
         throw new InteractorFailure(`${user.nickName}'s level doesn't match this meeting's rank`);
       }
     }

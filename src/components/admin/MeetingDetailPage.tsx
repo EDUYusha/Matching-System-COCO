@@ -109,7 +109,7 @@ export function MeetingDetailPage(): ReactNode {
         <section className="card p-4">
           <h2 className="mb-2 text-[13px] font-bold">基本情報</h2>
           <dl className="space-y-1.5 text-[12px]">
-            <Row label="ゲスト" value={meeting.owner ? <Link href={`/users/${meeting.owner.id}`}>{meeting.owner.nickName}</Link> : `ID ${meeting.ownerId}`} />
+            <Row label="ゲスト" value={meeting.owner ? <Link href={`/admin/users/${meeting.owner.id}`}>{meeting.owner.nickName}</Link> : `ID ${meeting.ownerId}`} />
             <Row label="エリア" value={meeting.areaName} />
             <Row label="料金メニュー" value={meeting.castRank?.name ?? '—'} />
             <Row label="募集" value={`${l(meeting.requestStartTime)} 〜 ${l(meeting.requestEndTime)}`} />
@@ -171,7 +171,7 @@ export function MeetingDetailPage(): ReactNode {
           rowKey={(row) => row.id}
           empty="キャストがいません"
           columns={[
-            { header: 'キャスト', cell: (row) => <Link href={`/users/${row.userId}`}>{row.nickName}</Link> },
+            { header: 'キャスト', cell: (row) => <Link href={`/admin/users/${row.userId}`}>{row.nickName}</Link> },
             {
               header: '役割',
               cell: (row) => (
@@ -238,8 +238,8 @@ export function MeetingDetailPage(): ReactNode {
             rowKey={(row) => row.id}
             columns={[
               { header: '評価', cell: (row) => '★'.repeat(row.stars ?? 0) },
-              { header: 'レビュアー', cell: (row) => (row.reviewerId ? <Link href={`/users/${row.reviewerId}`}>{row.reviewerId}</Link> : '—') },
-              { header: '対象', cell: (row) => (row.revieweeId ? <Link href={`/users/${row.revieweeId}`}>{row.revieweeId}</Link> : '—') },
+              { header: 'レビュアー', cell: (row) => (row.reviewerId ? <Link href={`/admin/users/${row.reviewerId}`}>{row.reviewerId}</Link> : '—') },
+              { header: '対象', cell: (row) => (row.revieweeId ? <Link href={`/admin/users/${row.revieweeId}`}>{row.revieweeId}</Link> : '—') },
               { header: 'コメント', cell: (row) => <span className="whitespace-pre-wrap text-[11px]">{row.comment ?? ''}</span> },
             ]}
           />

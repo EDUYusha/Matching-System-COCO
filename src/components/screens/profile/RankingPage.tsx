@@ -124,9 +124,9 @@ export function RankingPage(): ReactNode {
                 <span
                   className={`w-7 shrink-0 text-center text-sm font-bold ${
                     row.position === 1
-                      ? 'text-yellow-300'
+                      ? 'text-amber-500'
                       : row.position === 2
-                        ? 'text-slate-300'
+                        ? 'text-slate-500'
                         : row.position === 3
                           ? 'text-amber-600'
                           : 'text-ink-500'

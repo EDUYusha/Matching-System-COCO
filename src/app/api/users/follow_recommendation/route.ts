@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { prisma } from '@/server/lib/prisma';
 import { AppError } from '@/server/lib/errors';
-import { createPrivateConversation } from '@/server/services/conversations';
+import {
+  createPrivateConversation,
+  postPrivateRoomRulesWarning,
+} from '@/server/services/conversations';
 import { createMessage } from '@/server/services/messages';
 import { enqueueMessageBroadcast } from '@/server/jobs/queues';
 import { requireUser } from '@/server/auth/session';
@@ -39,6 +42,8 @@ export const POST = route(async (request) => {
       withoutFormat: true,
     });
     await enqueueMessageBroadcast(message.id, [partner.id]);
+    // a room opened by the signup picks is a private room like any other
+    await postPrivateRoomRulesWarning(conversation.id);
   }
 
   return { ok: true, redirect: '/profile' };

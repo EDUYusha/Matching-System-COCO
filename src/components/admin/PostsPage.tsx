@@ -78,7 +78,7 @@ export function PostsPage(): ReactNode {
               empty="つぶやきがありません"
               columns={[
                 { header: 'ID', cell: (row) => row.id },
-                { header: '投稿者', cell: (row) => <Link href={`/users/${row.user.id}`}>{row.user.nickName}</Link> },
+                { header: '投稿者', cell: (row) => <Link href={`/admin/users/${row.user.id}`}>{row.user.nickName}</Link> },
                 { header: '公開範囲', cell: (row) => <Badge>{row.category}</Badge> },
                 {
                   header: '本文',

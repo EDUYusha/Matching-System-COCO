@@ -83,15 +83,15 @@ export function ReviewsPage(): ReactNode {
                 },
                 {
                   header: 'レビュアー',
-                  cell: (row) => (row.reviewer ? <Link href={`/users/${row.reviewer.id}`}>{row.reviewer.nickName}</Link> : '—'),
+                  cell: (row) => (row.reviewer ? <Link href={`/admin/users/${row.reviewer.id}`}>{row.reviewer.nickName}</Link> : '—'),
                 },
                 {
                   header: '対象',
-                  cell: (row) => (row.reviewee ? <Link href={`/users/${row.reviewee.id}`}>{row.reviewee.nickName}</Link> : '—'),
+                  cell: (row) => (row.reviewee ? <Link href={`/admin/users/${row.reviewee.id}`}>{row.reviewee.nickName}</Link> : '—'),
                 },
                 {
                   header: 'オーダー',
-                  cell: (row) => (row.meeting ? <Link href={`/meetings/${row.meeting.id}`}>{row.meeting.id}</Link> : '—'),
+                  cell: (row) => (row.meeting ? <Link href={`/admin/meetings/${row.meeting.id}`}>{row.meeting.id}</Link> : '—'),
                 },
                 {
                   header: 'コメント',

@@ -62,8 +62,8 @@ export function IdentityCheckPage({ interviewOnly = false }: { interviewOnly?: b
           </div>
 
           {data?.alreadyUploaded ? (
-            <div className="mx-4 card border-emerald-500/40 bg-emerald-950/25">
-              <p className="text-xs text-emerald-200">
+            <div className="mx-4 card border-emerald-200 bg-emerald-50">
+              <p className="text-xs text-emerald-700">
                 アップロード済みです。管理者が確認するまでお待ちください。
               </p>
             </div>

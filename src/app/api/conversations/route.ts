@@ -5,7 +5,13 @@ import { prisma } from '@/server/lib/prisma';
 import { paginate, paginationArgs } from '@/server/lib/pagination';
 import { toConversationSummary } from '@/server/lib/serializers';
 import { createMessage, unreadCountsByConversation } from '@/server/services/messages';
-import { createPrivateConversation, findConversationWithPartner } from '@/server/services/conversations';
+import {
+  createPrivateConversation,
+  findConversationWithPartner,
+  postPrivateRoomRulesWarning,
+} from '@/server/services/conversations';
+import { AppError } from '@/server/lib/errors';
+import { hasValidCreditCard } from '@/server/services/users';
 import { enqueueMessageBroadcast } from '@/server/jobs/queues';
 import { requireUser } from '@/server/auth/session';
 import { jsonBody, queryObject, route } from '@/server/http/route';
@@ -81,6 +87,22 @@ export const POST = route(async (request) => {
     .object({ userId: z.coerce.number(), withIntroMessage: z.boolean().optional() })
     .parse(await jsonBody(request));
 
+  /*
+   * The gate GET /conversations/:id already applies. Only the read side had
+   * it, so a guest with no card could open a room here and then be refused
+   * when they tried to read it: they reached the card form one tap later than
+   * they should have, with a dead room left behind.
+   *
+   * The signup cast picks in (users|cast)/follow_recommendation deliberately
+   * do not check: they run before anyone has had a chance to add a card, and
+   * their rooms are meant to sit unread until one is added.
+   */
+  if ((user.userType === 'customer' || user.userType === 'inviter') && !hasValidCreditCard(user)) {
+    throw new AppError('メッセージを表示する場合、クレジットカードを登録してください', {
+      redirect: '/financial/credit_card',
+    });
+  }
+
   const existing = await findConversationWithPartner(user.id, body.userId, {
     onlyPrivate: true,
     includeIgnored: true,
@@ -100,14 +122,7 @@ export const POST = route(async (request) => {
     withoutFormat: true,
   });
 
-  const { createSystemMessage } = await import('@/server/services/messages');
-  await createSystemMessage({
-    conversationId: conversation.id,
-    content:
-      'チャットルームでは、個人情報や連絡が取れるSNSやアプリ等の案内、他社競合ギャラ飲みサービスについてのお話は禁止させて頂いております。',
-    withUnread: true,
-    withBroadcast: true,
-  });
+  await postPrivateRoomRulesWarning(conversation.id);
 
   await enqueueMessageBroadcast(marker.id, [partner.id]);
 

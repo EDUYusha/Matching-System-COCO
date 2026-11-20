@@ -13,7 +13,9 @@ export const POST = route<{ id: string }>(async (_request, { params: routeParams
   const params = z.object({ id: z.coerce.number() }).parse(routeParams);
 
   const attendance = await prisma.castAttendance.findFirst({
-    where: { meetingId: params.id, userId: user.id },
+    // `out` is the cast who dropped off this order: they still have an
+    // attendance row, and without this they could press 到着 and start it
+    where: { meetingId: params.id, userId: user.id, role: { not: 'out' } },
   });
   if (!attendance) throw new AppError('参加記録が見つかりません', { statusCode: 400 });
 

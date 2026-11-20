@@ -147,7 +147,7 @@ export function PayoutRequestsPage(): ReactNode {
                   header: 'キャスト',
                   cell: (row) => (
                     <div>
-                      <Link href={`/users/${row.user.id}`}>{row.user.nickName}</Link>
+                      <Link href={`/admin/users/${row.user.id}`}>{row.user.nickName}</Link>
                       {row.user.realName ? <p className="text-[11px] text-slate-400">{row.user.realName}</p> : null}
                     </div>
                   ),

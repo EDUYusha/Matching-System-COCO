@@ -113,7 +113,7 @@ export function CreditTransactionsPage(): ReactNode {
                 {
                   header: '支払（from）',
                   cell: (row) =>
-                    row.chargedUser ? <Link href={`/users/${row.chargedUser.id}`}>{row.chargedUser.nickName}</Link> : '—',
+                    row.chargedUser ? <Link href={`/admin/users/${row.chargedUser.id}`}>{row.chargedUser.nickName}</Link> : '—',
                 },
                 {
                   header: '請求額',
@@ -123,7 +123,7 @@ export function CreditTransactionsPage(): ReactNode {
                 {
                   header: '受取（to）',
                   cell: (row) =>
-                    row.creditedUser ? <Link href={`/users/${row.creditedUser.id}`}>{row.creditedUser.nickName}</Link> : '—',
+                    row.creditedUser ? <Link href={`/admin/users/${row.creditedUser.id}`}>{row.creditedUser.nickName}</Link> : '—',
                 },
                 {
                   header: '付与額',

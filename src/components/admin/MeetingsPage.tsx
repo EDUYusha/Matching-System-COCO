@@ -110,7 +110,7 @@ export function MeetingsPage(): ReactNode {
               rowKey={(row) => row.id}
               empty="オーダーがありません"
               columns={[
-                { header: 'ID', cell: (row) => <Link href={`/meetings/${row.id}`}>{row.id}</Link> },
+                { header: 'ID', cell: (row) => <Link href={`/admin/meetings/${row.id}`}>{row.id}</Link> },
                 {
                   header: '状態',
                   cell: (row) => (
@@ -133,7 +133,7 @@ export function MeetingsPage(): ReactNode {
                 {
                   header: 'ゲスト',
                   cell: (row) =>
-                    row.owner ? <Link href={`/users/${row.owner.id}`}>{row.owner.nickName}</Link> : `ID ${row.ownerId}`,
+                    row.owner ? <Link href={`/admin/users/${row.owner.id}`}>{row.owner.nickName}</Link> : `ID ${row.ownerId}`,
                 },
                 { header: 'エリア', cell: (row) => row.areaName },
                 { header: '開始', cell: (row) => <span className="text-[11px]">{l(row.plannedStartTime)}</span> },
@@ -149,7 +149,7 @@ export function MeetingsPage(): ReactNode {
                         .filter((attendance) => attendance.role !== 'out')
                         .map((attendance) => (
                           <p key={attendance.id}>
-                            <Link href={`/users/${attendance.userId}`}>{attendance.nickName}</Link>
+                            <Link href={`/admin/users/${attendance.userId}`}>{attendance.nickName}</Link>
                             <span className="ml-1 text-slate-400">{attendance.role}</span>
                           </p>
                         ))}

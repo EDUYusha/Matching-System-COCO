@@ -87,8 +87,8 @@ export function BlockingsPage(): ReactNode {
               empty="ブロックはありません"
               columns={[
                 { header: 'ID', cell: (row) => row.id },
-                { header: 'ブロックした人', cell: (row) => <Link href={`/users/${row.user.id}`}>{row.user.nickName}</Link> },
-                { header: 'ブロックされた人', cell: (row) => <Link href={`/users/${row.target.id}`}>{row.target.nickName}</Link> },
+                { header: 'ブロックした人', cell: (row) => <Link href={`/admin/users/${row.user.id}`}>{row.user.nickName}</Link> },
+                { header: 'ブロックされた人', cell: (row) => <Link href={`/admin/users/${row.target.id}`}>{row.target.nickName}</Link> },
                 { header: '日時', cell: (row) => <span className="text-[11px]">{l(row.createdAt)}</span> },
                 {
                   header: '',

@@ -313,7 +313,7 @@ export function UserDetailPage(): ReactNode {
             rowKey={(row) => row.id}
             empty="オーダーはありません"
             columns={[
-              { header: 'ID', cell: (row) => <Link href={`/meetings/${row.id}`}>{row.id}</Link> },
+              { header: 'ID', cell: (row) => <Link href={`/admin/meetings/${row.id}`}>{row.id}</Link> },
               { header: '状態', cell: (row) => ADMIN_MEETING_STATUS_LABELS[row.status] },
               { header: 'エリア', cell: (row) => row.areaName },
               { header: '開始', cell: (row) => l(row.plannedStartTime) },
@@ -360,7 +360,7 @@ export function UserDetailPage(): ReactNode {
           empty="レビューはありません"
           columns={[
             { header: '評価', cell: (row) => '★'.repeat(row.stars ?? 0) },
-            { header: 'レビュアー', cell: (row) => (row.reviewer ? <Link href={`/users/${row.reviewer.id}`}>{row.reviewer.nickName}</Link> : '—') },
+            { header: 'レビュアー', cell: (row) => (row.reviewer ? <Link href={`/admin/users/${row.reviewer.id}`}>{row.reviewer.nickName}</Link> : '—') },
             { header: 'コメント', cell: (row) => <span className="whitespace-pre-wrap text-[11px]">{row.comment ?? ''}</span> },
           ]}
         />

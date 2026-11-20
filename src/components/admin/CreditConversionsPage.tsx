@@ -104,7 +104,7 @@ export function CreditConversionsPage(): ReactNode {
               empty="対象がありません"
               columns={[
                 { header: 'ID', cell: (row) => row.id },
-                { header: 'ユーザー', cell: (row) => <Link href={`/users/${row.user.id}`}>{row.user.nickName}</Link> },
+                { header: 'ユーザー', cell: (row) => <Link href={`/admin/users/${row.user.id}`}>{row.user.nickName}</Link> },
                 {
                   header: '区分',
                   cell: (row) => (
