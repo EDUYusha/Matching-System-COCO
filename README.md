@@ -28,7 +28,7 @@ history.
 ```bash
 cp .env.example .env          # then set SECRET_KEY_BASE / ADMIN_SECRET_KEY_BASE
 npm install
-npm run db:push
+npm run db:migrate            # applies prisma/migrations (the 0_init baseline)
 npm run db:seed
 npm run dev                   # http://localhost:3000
 npm run dev:worker            # BullMQ worker + cron, a separate process
@@ -200,6 +200,57 @@ silent:
 
 ---
 
+## Schema changes
+
+The schema is under `prisma/migrations`, baselined as `0_init` — 59 tables and
+117 indexes, generated with `prisma migrate diff` from the schema and marked
+applied, because the database it was taken from had no drift against it.
+
+Before that baseline the schema was kept in step with `prisma db push`, which
+leaves no history: there was no way to ship a column, an index or a constraint
+to another environment and know what had already been applied. Use
+`npm run db:migrate` from here on. `db:push` still works and is still useful for
+a throwaway experiment, but a `push` that lands in a shared database puts it out
+of step with the migration history, and the next `migrate` will say so.
+
+---
+
+## The uploads mount
+
+`UPLOAD_MOUNT` is `/uploads`, and `src/app/uploads/[...path]/route.ts` serves it
+from `env.uploadsDir` — Rails had these as static files under `public/uploads`,
+which Next does not do for anything outside `public/`.
+
+Only the two Shrine storages, `cache` and `store`, are reachable.
+`uploads/cast_pictures` is their sibling on disk and holds identity documents;
+it is served, authenticated, by `/api/admin/access_requests/[userId]/picture`.
+`server/lib/upload-path.ts` holds the resolver and the containment check, and
+has tests.
+
+For anything beyond a demo this should be object storage with the app handing
+out urls instead of bytes — the handler reads from the local disk, so it does
+not survive more than one app instance.
+
+---
+
+## Request limits
+
+`server/lib/rate-limit.ts`, a fixed window in Redis, on the endpoints where
+repetition is the attack: SMS codes (5 per number, 20 per caller, hourly — each
+call sends a real Twilio message), the three logins (30 per caller per 5
+minutes, 10 per account per 15 minutes), the password-reset mail and
+`reset_password` itself, and signup.
+
+The limits are deliberately generous: a shared office NATs many people to one
+address. Redis failures allow the request, because Redis is already required for
+the queues and the websocket, so failing closed would turn an outage into one
+where nobody can log in.
+
+Nothing else is limited. The rest of the API is authenticated, so the shape of
+the abuse is different and is better answered at the edge than per route.
+
+---
+
 ## Known gaps
 
 Inherited from coco-v2, because the source material is absent from the export:
@@ -226,4 +277,5 @@ Inherited from coco-v2, because the source material is absent from the export:
 | `npm run dev:worker` | the BullMQ worker and cron |
 | `npm run build` / `start` | production build and server |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run db:push` / `db:seed` / `db:studio` | Prisma |
+| `npm run db:migrate` | applies `prisma/migrations` — how schema changes ship |
+| `npm run db:push` / `db:seed` / `db:studio` | Prisma. `db:push` is for throwaway experiments only |
