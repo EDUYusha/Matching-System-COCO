@@ -2,12 +2,15 @@ import { z } from 'zod';
 import { prisma } from '@/server/lib/prisma';
 import { urlsafeBase64 } from '@/server/lib/auth';
 import { enqueueMail } from '@/server/jobs/queues';
-import { jsonBody, route } from '@/server/http/route';
+import { clientIp, jsonBody, route } from '@/server/http/route';
+import { enforceRateLimit, RATE_LIMITS } from '@/server/lib/rate-limit';
 export const dynamic = 'force-dynamic';
 
 /** sessions: POST /restore_password */
 export const POST = route(async (request) => {
   const body = z.object({ email: z.string() }).parse(await jsonBody(request));
+  await enforceRateLimit('password-reset-ip', clientIp(request), RATE_LIMITS.passwordResetPerIp);
+  await enforceRateLimit('password-reset', body.email.toLowerCase(), RATE_LIMITS.passwordResetPerEmail);
   const user = await prisma.user.findFirst({ where: { email: body.email, discardedAt: null } });
 
   if (user) {

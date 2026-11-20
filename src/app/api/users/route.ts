@@ -6,13 +6,15 @@ import { toCurrentUser } from '@/server/lib/serializers';
 import { createUser } from '@/server/services/users';
 import { readSession, setSession } from '@/server/auth/session';
 import { verifyCode } from '@/server/services/sms-verification';
-import { jsonBody, route } from '@/server/http/route';
+import { clientIp, jsonBody, route } from '@/server/http/route';
+import { enforceRateLimit, RATE_LIMITS } from '@/server/lib/rate-limit';
 import { signupSchema, writeSignupAttributes } from '@/server/api/users-shared';
 export const dynamic = 'force-dynamic';
 
 /** users: POST /users */
 export const POST = route(async (request) => {
   const body = signupSchema.parse(await jsonBody(request));
+  await enforceRateLimit('signup-ip', clientIp(request), RATE_LIMITS.signupPerIp);
   const scratch = (await readSession())?.scratch ?? {};
 
   // the number the code was actually sent to, once a code has been checked

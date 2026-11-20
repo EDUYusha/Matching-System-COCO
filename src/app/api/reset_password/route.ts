@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { prisma } from '@/server/lib/prisma';
 import { AppError } from '@/server/lib/errors';
 import { hashPassword } from '@/server/lib/auth';
-import { jsonBody, route } from '@/server/http/route';
+import { clientIp, jsonBody, route } from '@/server/http/route';
+import { enforceRateLimit, RATE_LIMITS } from '@/server/lib/rate-limit';
 export const dynamic = 'force-dynamic';
 
 /** sessions: POST /reset_password */
@@ -17,6 +18,10 @@ export const POST = route(async (request) => {
       restorationToken: z.string().min(1),
     })
     .parse(await jsonBody(request));
+
+  // the token is 32 random bytes, but nothing stopped a caller trying
+  // tokens as fast as the network allowed
+  await enforceRateLimit('password-reset-ip', clientIp(request), RATE_LIMITS.passwordResetPerIp);
 
   const user = await prisma.user.findFirst({
     where: {

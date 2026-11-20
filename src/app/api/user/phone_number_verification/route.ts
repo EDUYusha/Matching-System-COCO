@@ -4,7 +4,8 @@ import { validateUser, assertValid } from '@/server/services/users';
 import { sendVerificationSms } from '@/server/services/sms';
 import { issueVerification } from '@/server/services/sms-verification';
 import { readSession, requireUser, setSession } from '@/server/auth/session';
-import { jsonBody, route } from '@/server/http/route';
+import { clientIp, jsonBody, route } from '@/server/http/route';
+import { enforceRateLimit, RATE_LIMITS } from '@/server/lib/rate-limit';
 export const dynamic = 'force-dynamic';
 
 /** users: POST /user/phone_number_verification */
@@ -31,6 +32,11 @@ export const POST = route(async (request) => {
     {},
   );
   assertValid(errors);
+
+  // a real Twilio message goes out per call, so the number and the caller
+  // are both limited before anything is sent
+  await enforceRateLimit('sms', body.phone, RATE_LIMITS.smsPerPhone);
+  await enforceRateLimit('sms-ip', clientIp(request), RATE_LIMITS.smsPerIp);
 
   const { code, phone } = await sendVerificationSms(body.phone);
   // only a handle goes in the session: the session is a signed, readable JWT,

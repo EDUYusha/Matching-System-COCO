@@ -17,6 +17,10 @@ import { NextResponse, type NextRequest } from 'next/server';
  *
  * Everything outside `/internal_api` keeps the behaviour it had before the flag:
  * a trailing slash redirects, so `/faq/` still reaches `/faq`.
+ *
+ * `/uploads` is excluded from the matcher: it is served by a Route Handler
+ * straight from disk, and neither rule above applies to a file url, so there
+ * is no reason to run middleware once per image on a page full of them.
  */
 
 const INTERNAL_API_PREFIX = '/internal_api';
@@ -49,5 +53,5 @@ export function middleware(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|uploads/|favicon.ico).*)'],
 };
