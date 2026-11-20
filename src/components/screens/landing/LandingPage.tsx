@@ -904,11 +904,14 @@ function DataTable({
   head,
   rows,
   notes,
+  notesOnDark = false,
 }: {
   caption: string;
   head: string[];
   rows: Array<{ key: string; cells: ReactNode[] }>;
   notes?: string[];
+  /** lightens the notes under the table, for a table on a dark section */
+  notesOnDark?: boolean;
 }): ReactNode {
   return (
     <div className="mt-8">
@@ -949,7 +952,7 @@ function DataTable({
         </tbody>
       </table>
       {notes?.length ? (
-        <ul className="mt-3 space-y-1 text-[11px] leading-relaxed text-ink-500">
+        <ul className={clsx('mt-3 space-y-1 text-[11px] leading-relaxed', notesOnDark ? 'text-white/70' : 'text-ink-500')}>
           {notes.map((note) => (
             <li key={note}>※ {note}</li>
           ))}
@@ -959,39 +962,76 @@ function DataTable({
   );
 }
 
+/** Who carries out a step: the guest, the cast, or the system on its own. */
+type Actor = 'ゲスト' | 'キャスト' | '自動';
+
+interface FlowStep {
+  actor: Actor;
+  body: string;
+}
+
+/**
+ * How an order really runs, from the order form through to the receipt. Each step says who acts, because
+ * most of them are the cast's or the system's — the guest only starts the order and picks the cast.
+ */
 function Steps(): ReactNode {
   const [plan, setPlan] = useState<'group' | 'individual'>('group');
-  const steps =
+
+  const groupSteps: FlowStep[] = [
+    { actor: 'ゲスト', body: 'エリア・日時・時間・人数・料金タイプとご希望を選んでオーダー（開始は30分後から、1時間以上）' },
+    { actor: 'ゲスト', body: '内容を確認して送信。この時点では料金はかかりません' },
+    { actor: 'キャスト', body: '条件に合うキャストが応募します' },
+    { actor: '自動', body: '応募が人数に達するとリクエスト確定。ポイントが確保されます（不足分はカードから自動チャージ）' },
+    {
+      actor: 'ゲスト',
+      body: `締切までお好みのキャストを選択（ご指名は1名につき ${numberToCredits(config.cast_selection_surcharge)}）。選ばない場合は自動マッチング`,
+    },
+    { actor: '自動', body: 'マッチング確定。専用チャットで待ち合わせ場所をご連絡いただけます' },
+    { actor: 'キャスト', body: '当日、合流時に「開始」、解散時に「終了」。終了後に利用ポイントの明細が届きます' },
+  ];
+
+  const individualSteps: FlowStep[] = [
+    { actor: 'ゲスト', body: '「探す」でキャストを見つけて「いいね」。チャットが始まります' },
+    { actor: 'ゲスト', body: 'チャットから日程・時間・場所を決めて依頼（キャストからのご提案もあります）' },
+    { actor: 'キャスト', body: 'キャストが承認するとリクエスト確定。ポイントが確保されます' },
+    { actor: '自動', body: '回答がないまま開始時刻を迎えた場合は自動でキャンセル（料金はかかりません）' },
+    { actor: 'キャスト', body: '当日の開始・終了、明細はグループTOLAと同じです' },
+  ];
+
+  const steps = plan === 'group' ? groupSteps : individualSteps;
+  const note =
     plan === 'group'
-      ? [
-          { title: 'オーダーを作成', body: 'エリア・日時・人数・料金タイプと、ご希望を選んで募集します。' },
-          { title: 'キャストを選んで確定', body: '応募したキャストのプロフィールを見て、来てほしいキャストを選びます。' },
-          { title: '合流して楽しむ', body: '専用チャットで待ち合わせ場所を伝えて、キャストと合流します。' },
-        ]
-      : [
-          { title: 'キャストを探す', body: '「探す」でプロフィールを見て、気になるキャストに「いいね」を送ります。' },
-          { title: 'チャットで相談', body: 'チャットで日程や場所を相談し、そのまま個TOLAを依頼します。' },
-          { title: '合流して楽しむ', body: 'キャストが依頼を承認したら、約束の場所で合流します。' },
-        ];
+      ? 'グループTOLAは、リクエスト確定後のキャンセルはお受けできません。'
+      : '個TOLAは、キャストの回答前であればキャンセルいただけます。';
 
   return (
-    <Section id="steps" tone="dark">
-      <SectionHeading en="Steps" tone="dark">
+    <Section
+      id="steps"
+      tone="dark"
+      // the same three diagonal bands as 「TOLAが選ばれる理由」
+      className="bg-[linear-gradient(135deg,#46494f_0%,#46494f_34%,#5d6066_34%,#5d6066_67%,#777a81_67%,#777a81_100%)]"
+    >
+      <SectionHeading en="Steps" eyebrow="HOW TO USE" tone="dark">
         はじめ方
       </SectionHeading>
 
-      <div className="mt-10 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-        <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-full bg-gold-500 text-night-950">
-          <span className="text-[8px] font-bold leading-none tracking-wider">STEP</span>
-          <span className="font-serif text-lg font-bold leading-none">0</span>
-        </span>
-        <p className="text-[13px] leading-relaxed text-white/80">
-          <span className="block text-[15px] font-bold text-white">会員登録</span>
-          LINEまたはメールアドレスで登録します。
-        </p>
+      {/* the three things the app requires before an order can be placed, as even columns */}
+      <div className="mt-8 border border-cream-200 bg-white">
+        <ul className="grid grid-cols-3 divide-x divide-cream-200">
+          {[
+            { label: '会員登録', note: 'メール・LINE' },
+            { label: '電話番号認証', note: 'SMS' },
+            { label: 'カード登録', note: 'お支払い用' },
+          ].map((item) => (
+            <li key={item.label} className="px-2 py-4 text-center">
+              <p className="text-[12px] font-bold text-ink-800">{item.label}</p>
+              <p className="mt-0.5 text-[10px] text-ink-500">{item.note}</p>
+            </li>
+          ))}
+        </ul>
       </div>
 
-      <div role="tablist" aria-label="使い方" className="mt-6 grid grid-cols-2 rounded-full bg-white/[0.06] p-1">
+      <div role="tablist" aria-label="使い方" className="mt-6 grid grid-cols-2 gap-1 border border-cream-200 bg-white p-1">
         {(
           [
             ['group', 'グループTOLA'],
@@ -1005,8 +1045,8 @@ function Steps(): ReactNode {
             aria-selected={plan === value}
             onClick={() => setPlan(value)}
             className={clsx(
-              'rounded-full py-2 text-[13px] font-bold transition',
-              plan === value ? 'bg-gold-500 text-night-950' : 'text-white/70 hover:text-white',
+              'py-2 text-[13px] font-bold transition',
+              plan === value ? 'bg-gold-700 text-white' : 'text-ink-600 hover:text-ink-900',
             )}
           >
             {label}
@@ -1014,20 +1054,59 @@ function Steps(): ReactNode {
         ))}
       </div>
 
-      <ol className="relative mt-8 space-y-7 before:absolute before:bottom-5 before:left-[23px] before:top-5 before:w-px before:bg-gold-500/40">
-        {steps.map((step, index) => (
-          <li key={step.title} className="relative flex gap-4">
-            <span className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gold-400/60 bg-night-900 font-serif text-xl text-gold-300">
-              {index + 1}
-            </span>
-            <div className="pt-1.5">
-              <p className="text-[15px] font-bold text-white">{step.title}</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-white/70">{step.body}</p>
+      {/* one square box per step */}
+      <ol className="mt-8 space-y-3">
+        {steps.map((step) => (
+          // even vertical padding, so the absolute tag never shifts the text off centre
+          <li key={step.body} className="relative flex min-h-[104px] items-center border border-cream-200 bg-white px-4 py-8">
+            {/* pinned to the corner, so the text below it stays centred in the box */}
+            <div className="absolute right-0 top-0">
+              <ActorTag actor={step.actor} />
             </div>
+            {/* balanced wrapping keeps the centred lines close to the same length */}
+            <p className="w-full text-balance text-center text-[13px] leading-relaxed text-ink-800">{step.body}</p>
           </li>
         ))}
       </ol>
+
+      <p className="mt-6 text-[11px] leading-relaxed text-white/70">※ {note}</p>
+
+      {plan === 'group' ? (
+        <DataTable
+          caption="募集時間の目安"
+          head={['オーダーの開始まで', '募集時間']}
+          notesOnDark
+          rows={[
+            { key: '30m', cells: ['30分以内', '10分'] },
+            { key: '2h', cells: ['2時間以内', '15分'] },
+            { key: '6h', cells: ['6時間以内', '30分'] },
+            { key: '12h', cells: ['12時間以内', '1時間'] },
+            { key: '24h', cells: ['24時間以内', '4時間'] },
+            { key: '3d', cells: ['3日以内', '8時間'] },
+            { key: 'more', cells: ['それ以降', '24時間'] },
+          ]}
+          notes={['募集時間を過ぎると、応募したキャストから自動でマッチングされます。']}
+        />
+      ) : null}
     </Section>
+  );
+}
+
+/** Marks a step as the guest's, the cast's, or the system's. */
+function ActorTag({ actor }: { actor: Actor }): ReactNode {
+  return (
+    <span
+      className={clsx(
+        'inline-block px-2 py-0.5 text-[11px] font-bold',
+        {
+          ゲスト: 'bg-gold-100 text-gold-800',
+          キャスト: 'bg-[#f6e0d2] text-[#96491f]',
+          自動: 'bg-cream-200 text-ink-600',
+        }[actor],
+      )}
+    >
+      {actor}
+    </span>
   );
 }
 
