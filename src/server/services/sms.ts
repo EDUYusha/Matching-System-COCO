@@ -23,7 +23,17 @@ export async function sendVerificationSms(phone: string): Promise<SendVerificati
   const code = smsVerificationCode();
   const fullPhoneNumber = toE164(phone);
 
+  /*
+   * Unconfigured Twilio used to mean "return success without sending", in every
+   * environment — a verification gate that reported OK while doing nothing, with
+   * the live code in the production log. Simulating is a development
+   * convenience; outside development a missing credential is an error.
+   */
   if (simulateExternalCalls || !env.twilio.accountSid) {
+    if (!env.isDevelopment && !env.isTest) {
+      logger.error({ phone: fullPhoneNumber }, 'SMS verification requested but Twilio is not configured');
+      throw new AppError('SMS連携の設定がありません。管理者に連絡してください。');
+    }
     logger.info({ phone: fullPhoneNumber, code }, 'SMS verification simulated (code logged, not sent)');
     return { code, phone };
   }

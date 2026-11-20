@@ -1,9 +1,21 @@
 import { PrismaClient } from '@prisma/client';
 import { env } from '@/server/config/env';
 
-export const prisma = new PrismaClient({
-  log: env.isDevelopment ? ['warn', 'error'] : ['error'],
-});
+/*
+ * Cached on globalThis in development. Next re-evaluates server modules on every
+ * edit, and a fresh PrismaClient each time brings its own connection pool that
+ * nothing disconnects — a handful of saves and Postgres answers
+ * `too many clients already`. Production constructs it exactly once.
+ */
+const globalForPrisma = globalThis as typeof globalThis & { cocoPrisma?: PrismaClient };
+
+export const prisma =
+  globalForPrisma.cocoPrisma ??
+  new PrismaClient({
+    log: env.isDevelopment ? ['warn', 'error'] : ['error'],
+  });
+
+if (!env.isProduction) globalForPrisma.cocoPrisma = prisma;
 
 export type Tx = Omit<
   PrismaClient,

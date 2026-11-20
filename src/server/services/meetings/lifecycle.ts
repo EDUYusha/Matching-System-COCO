@@ -328,15 +328,26 @@ export async function completeMeeting(
       async (tx) => {
         let dontRollBack = false;
         try {
+          /*
+           * The row lock is taken on every path, not just the recharge one.
+           * Settlement is only ever correct once: the lock used to be inside
+           * `if (options.recharge)`, so two ordinary completes — an operator
+           * double-click, or two casts pressing 解散 at the same moment — both
+           * read the status, both settled, and the guest was charged twice while
+           * every reward paid twice. `markMeetingCompleted` sets 'completed', so
+           * that status is the marker a second run has to refuse.
+           */
+          const rows = await tx.$queryRaw<Array<{ status: string }>>`
+            SELECT status FROM meetings WHERE id = ${meetingId} FOR UPDATE
+          `;
+          const status = rows[0]?.status;
+
           if (options.recharge) {
-            // taken under the row lock so two recharges racing each other cannot
-            // both see post_charge_fail and settle the order twice
-            const rows = await tx.$queryRaw<Array<{ status: string }>>`
-              SELECT status FROM meetings WHERE id = ${meetingId} FOR UPDATE
-            `;
-            if (rows[0]?.status !== 'post_charge_fail') {
+            if (status !== 'post_charge_fail') {
               throw new InteractorFailure('Meeting must have status ›post_charge_fail‹');
             }
+          } else if (status === 'completed') {
+            throw new InteractorFailure('Meeting has already been completed');
           }
 
           const costs = await calculateMeetingCosts(meetingId, {}, tx);

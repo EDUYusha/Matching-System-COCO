@@ -12,7 +12,9 @@ export const POST = route(async (request) => {
       email: z.string(),
       password: z.string(),
       passwordConfirmation: z.string(),
-      restorationToken: z.string().optional(),
+      // never optional: without it the lookup would match on the email alone,
+      // which let anyone reset any account
+      restorationToken: z.string().min(1),
     })
     .parse(await jsonBody(request));
 
@@ -20,10 +22,20 @@ export const POST = route(async (request) => {
     where: {
       email: body.email,
       discardedAt: null,
-      ...(body.restorationToken ? { restorationToken: body.restorationToken } : {}),
+      restorationToken: body.restorationToken,
     },
   });
   if (!user) throw new AppError('無効なリマインドトークンです。', { redirect: '/login' });
+
+  // the same two-hour window the GET enforces, so the token cannot be redeemed
+  // after the link has expired
+  if (!user.lastActivity || user.lastActivity.getTime() < Date.now() - 2 * 60 * 60 * 1000) {
+    await prisma.user.update({ where: { id: user.id }, data: { restorationToken: null } });
+    throw new AppError(
+      'リンクは有効期限が切れております。パスワード再設定を最初からお試しください。',
+      { redirect: '/login' },
+    );
+  }
 
   if (body.password.length < 6) {
     throw new AppError('パスワードは6文字以上で入力してください');

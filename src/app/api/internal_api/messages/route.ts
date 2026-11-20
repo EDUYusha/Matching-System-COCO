@@ -3,6 +3,7 @@ import { createMessage, createSystemMessage } from '@/server/services/messages';
 import { railsBoolean, requestParams } from '@/server/http/params';
 import { route } from '@/server/http/route';
 import { railsOk } from '@/server/http/internal-api';
+import { requireAdmin } from '@/server/auth/session';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -15,6 +16,14 @@ export const dynamic = 'force-dynamic';
  * the empty success body of the compatibility endpoints.
  */
 export const POST = route(async (request) => {
+  /*
+   * The admin conversation screen is the only caller, so this is gated on an
+   * admin session rather than on the source address the panel's endpoints use:
+   * it arrives from an operator's browser. Without it the route accepted
+   * `sender_id` and a `category` that skips escaping from anyone at all.
+   */
+  await requireAdmin();
+
   const body = z
     .object({
       conversation_id: z.coerce.number(),

@@ -99,7 +99,24 @@ async function main(): Promise<void> {
     worker.on('completed', (job) => {
       logger.debug({ job: job.name, id: job.id }, 'job completed');
     });
+    /*
+     * BullMQ emits 'error' for connection and scheduling failures. An 'error'
+     * event with no listener throws on a Node EventEmitter, so a transient Redis
+     * hiccup used to kill the worker process outright. ioredis reconnects on its
+     * own once this is merely logged.
+     */
+    worker.on('error', (error) => {
+      logger.error({ error }, 'worker error');
+    });
   }
+
+  process.on('unhandledRejection', (reason: unknown) => {
+    logger.error({ reason }, 'unhandled rejection in worker');
+  });
+  process.on('uncaughtException', (error: unknown) => {
+    logger.fatal({ error }, 'uncaught exception in worker, exiting');
+    process.exit(1);
+  });
 
   await registerCronJobs();
   logger.info({ concurrency }, 'coco workers started');

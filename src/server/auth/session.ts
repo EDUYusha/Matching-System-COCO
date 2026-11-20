@@ -114,7 +114,8 @@ export async function currentUser(): Promise<User | null> {
   // forcefully logged out elsewhere (an admin action) while no live session exists
   if (user?.loggedOut && !session?.userId) user = null;
 
-  if (user) void markActivity(user.id);
+  // the row is already in hand, so the write can be skipped when it is fresh
+  if (user) void markActivity(user.id, user.lastActivity);
   return user;
 }
 

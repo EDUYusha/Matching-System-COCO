@@ -1,5 +1,6 @@
 import { Readable } from 'node:stream';
 import type { NextRequest } from 'next/server';
+import { AppError } from '@/server/lib/errors';
 
 /**
  * Multipart uploads, in the shape the ported services already expect.
@@ -9,6 +10,21 @@ import type { NextRequest } from 'next/server';
  * each file is adapted back to a Node `Readable` — `storeUpload` pipes it
  * straight to disk and never buffers the whole upload.
  */
+
+/**
+ * Largest multipart body read at all, checked from Content-Length before
+ * `request.formData()` is called. The per-file 20MB limit in lib/uploads.ts
+ * applies after the body has already been materialised in memory, which is too
+ * late to stop a deliberately huge POST from exhausting the process.
+ */
+const MAX_BODY_BYTES = 25 * 1024 * 1024;
+
+function assertBodyWithinLimit(request: NextRequest): void {
+  const declared = Number(request.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    throw new AppError('ファイルサイズが大きすぎます（最大20MB）');
+  }
+}
 
 export interface UploadPart {
   /** the form field the file arrived under */
@@ -31,6 +47,7 @@ function toPart(field: string, file: File): UploadPart {
 
 /** Every file in the request body, in form order. */
 export async function uploadParts(request: NextRequest): Promise<UploadPart[]> {
+  assertBodyWithinLimit(request);
   const form = await request.formData();
   const parts: UploadPart[] = [];
   for (const [field, value] of form.entries()) {
@@ -46,6 +63,7 @@ export async function uploadParts(request: NextRequest): Promise<UploadPart[]> {
 export async function multipart(
   request: NextRequest,
 ): Promise<{ files: UploadPart[]; fields: Record<string, string> }> {
+  assertBodyWithinLimit(request);
   const form = await request.formData();
   const files: UploadPart[] = [];
   const fields: Record<string, string> = {};

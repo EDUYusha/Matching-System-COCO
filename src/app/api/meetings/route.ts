@@ -77,13 +77,15 @@ export const GET = route(async (_request, { searchParams }) => {
   let meetings: Array<Prisma.MeetingGetPayload<{ include: typeof MEETING_INCLUDE }>>;
   if (useJoinabilityOrder) {
     // Meeting.order_by_joinability needs raw SQL for its CASE expression
+    // one query for the candidate ids, not the same one twice: it is unbounded,
+    // and it used to be awaited once for the length check and again for the list
+    const candidateIds = (await prisma.meeting.findMany({ where, select: { id: true } })).map(
+      (row) => row.id,
+    );
+
     const ids = await prisma.$queryRaw<Array<{ id: number }>>(Prisma.sql`
       SELECT id FROM meetings
-      WHERE id IN (${Prisma.join(
-        (await prisma.meeting.findMany({ where, select: { id: true } })).map((row) => row.id).length
-          ? (await prisma.meeting.findMany({ where, select: { id: true } })).map((row) => row.id)
-          : [-1],
-      )})
+      WHERE id IN (${Prisma.join(candidateIds.length ? candidateIds : [-1])})
       ORDER BY ${ORDER_BY_JOINABILITY}
       LIMIT ${pagination.take} OFFSET ${pagination.skip}
     `);

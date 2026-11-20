@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AppError } from '@/server/lib/errors';
 import { validateUser, assertValid } from '@/server/services/users';
 import { sendVerificationSms } from '@/server/services/sms';
+import { issueVerification } from '@/server/services/sms-verification';
 import { readSession, requireUser, setSession } from '@/server/auth/session';
 import { jsonBody, route } from '@/server/http/route';
 export const dynamic = 'force-dynamic';
@@ -32,9 +33,12 @@ export const POST = route(async (request) => {
   assertValid(errors);
 
   const { code, phone } = await sendVerificationSms(body.phone);
+  // only a handle goes in the session: the session is a signed, readable JWT,
+  // so the code itself stays server-side (see services/sms-verification.ts)
+  const verificationId = await issueVerification(phone, code);
   await setSession({
     userId: user.id,
-    scratch: { ...((await readSession())?.scratch ?? {}), sms_verification_code: code, telephone_number: phone },
+    scratch: { ...((await readSession())?.scratch ?? {}), sms_verification_id: verificationId },
   });
   return { ok: true };
 });

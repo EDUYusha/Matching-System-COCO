@@ -5,6 +5,7 @@ import { requiredAction } from '@/server/auth/session';
 import { toCurrentUser } from '@/server/lib/serializers';
 import { createUser } from '@/server/services/users';
 import { readSession, setSession } from '@/server/auth/session';
+import { verifyCode } from '@/server/services/sms-verification';
 import { jsonBody, route } from '@/server/http/route';
 import { signupSchema, writeSignupAttributes } from '@/server/api/users-shared';
 export const dynamic = 'force-dynamic';
@@ -14,11 +15,20 @@ export const POST = route(async (request) => {
   const body = signupSchema.parse(await jsonBody(request));
   const scratch = (await readSession())?.scratch ?? {};
 
+  // the number the code was actually sent to, once a code has been checked
+  let verifiedPhone: string | null = null;
+
   if (config.require_sms_verification) {
-    const expected = scratch.sms_verification_code;
-    if (!expected || body.smsVerificationCode !== expected) {
-      throw new AppError('認証コードは無効です。', { statusCode: 422 });
+    const verification = await verifyCode(scratch.sms_verification_id, body.smsVerificationCode ?? '');
+    if (!verification.ok) {
+      throw new AppError(
+        verification.reason === 'too_many_attempts'
+          ? '認証コードの試行回数を超えました。お手数ですが、もう一度お試しください。'
+          : '認証コードは無効です。',
+        { statusCode: 422 },
+      );
     }
+    verifiedPhone = verification.phone;
   }
 
   const { user } = await createUser({
@@ -28,7 +38,7 @@ export const POST = route(async (request) => {
     passwordConfirmation: body.passwordConfirmation ?? null,
     userType: 'customer',
     snsId: scratch.sns_id ?? null,
-    phone: scratch.telephone_number ?? body.phone ?? null,
+    phone: verifiedPhone ?? scratch.telephone_number ?? body.phone ?? null,
     birthday: body.birthday ? new Date(body.birthday) : null,
     birthdayPublished: body.birthdayPublished ?? null,
     age: body.age ?? null,

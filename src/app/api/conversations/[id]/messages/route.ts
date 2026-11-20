@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { prisma } from '@/server/lib/prisma';
 import { ForbiddenError } from '@/server/lib/errors';
 import { toMessageDto } from '@/server/lib/serializers';
-import { createMessage } from '@/server/services/messages';
+import { createMessage, MAX_MESSAGE_LENGTH } from '@/server/services/messages';
 import { requireUser } from '@/server/auth/session';
 import { jsonBody, route } from '@/server/http/route';
 export const dynamic = 'force-dynamic';
@@ -11,7 +11,11 @@ export const dynamic = 'force-dynamic';
 export const POST = route<{ id: string }>(async (request, { params: routeParams }) => {
   const user = await requireUser();
   const params = z.object({ id: z.coerce.number() }).parse(routeParams);
-  const body = z.object({ content: z.string().min(1) }).parse(await jsonBody(request));
+  // capped: the column is unbounded text, so without a maximum a single
+  // request could store a message of any size and every reader would fetch it
+  const body = z
+    .object({ content: z.string().min(1).max(MAX_MESSAGE_LENGTH) })
+    .parse(await jsonBody(request));
 
   const speaker = await prisma.speaker.findFirst({
     where: { conversationId: params.id, userId: user.id },

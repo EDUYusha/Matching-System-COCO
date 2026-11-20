@@ -556,8 +556,20 @@ export async function updateBasics(userId: number, input: UpdateBasicsInput): Pr
   }
 }
 
-/** User#mark_activity! */
-export async function markActivity(userId: number): Promise<void> {
+/** How stale `lastActivity` may get before it is written again. */
+const ACTIVITY_WRITE_INTERVAL_MS = 60 * 1000;
+
+/**
+ * User#mark_activity!
+ *
+ * Throttled, because this runs on every authenticated request: writing
+ * `users.last_activity` each time meant row-lock contention for anyone with a
+ * couple of tabs and a socket open, plus a dead tuple per request on the widest
+ * and hottest table in the schema. A minute's resolution is far finer than
+ * either consumer needs — `isOnline` works to 30 minutes.
+ */
+export async function markActivity(userId: number, lastActivity?: Date | null): Promise<void> {
+  if (lastActivity && lastActivity.getTime() > Date.now() - ACTIVITY_WRITE_INTERVAL_MS) return;
   await prisma.user.update({ where: { id: userId }, data: { lastActivity: new Date() } }).catch(() => undefined);
 }
 

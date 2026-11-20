@@ -19,7 +19,12 @@ interface LockedBalance {
   frozen_credits: number;
 }
 
-async function lockUser(tx: Tx, userId: number): Promise<LockedBalance> {
+/**
+ * Takes the user's row lock, which is how every balance decision is serialised.
+ * Exported because the payout paths have to read a balance and act on it in one
+ * atomic step, not just mutate it.
+ */
+export async function lockUser(tx: Tx, userId: number): Promise<LockedBalance> {
   const rows = await tx.$queryRaw<LockedBalance[]>`
     SELECT id, credit_balance, frozen_credits FROM users WHERE id = ${userId} FOR UPDATE
   `;

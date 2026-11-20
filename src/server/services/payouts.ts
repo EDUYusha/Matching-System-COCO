@@ -1,7 +1,7 @@
 import { config, dbDate, isoDate, PAYOUT_MINIMUM_DATE, tokyoParts, tokyoStartOfMonth, toI } from '@/lib';
 import { prisma, transaction, type Tx } from '@/server/lib/prisma';
 import { AppError, InteractorFailure } from '@/server/lib/errors';
-import { createCreditConversion, createCreditTransaction } from '@/server/services/credits';
+import { createCreditConversion, createCreditTransaction, lockUser } from '@/server/services/credits';
 
 /**
  * Ports ComputeCastPayout, CreatePayoutTransactions, MakePayout and the payout
@@ -145,34 +145,48 @@ export async function createPayoutTransactions(
 }
 
 /** MakePayout — ComputeCastPayout then CreatePayoutTransactions. */
-export async function makePayout(input: {
-  userId: number;
-  creditAmount: number;
-  fastPayout?: boolean;
-}): Promise<{ creditTransactionId: number; creditConversionId: number; costs: PayoutCosts }> {
+export async function makePayout(
+  input: {
+    userId: number;
+    creditAmount: number;
+    fastPayout?: boolean;
+  },
+  tx?: Tx,
+): Promise<{ creditTransactionId: number; creditConversionId: number; costs: PayoutCosts }> {
   const costs = computeCastPayout(input.creditAmount, input.fastPayout);
   const result = await createPayoutTransactions(
     { userId: input.userId, creditAmount: input.creditAmount, netOut: costs.netOut, fastPayout: input.fastPayout },
-    undefined,
+    tx,
   );
   return { ...result, costs };
 }
 
 /** FinancialController#record_payout, fast branch. */
 export async function requestFastPayout(userId: number): Promise<void> {
-  const { creditBalance } = await payableBalanceFor(userId);
-  // fast payouts ignore the monthly restriction and take the whole balance
-  if (creditBalance <= 0) throw new AppError('出金可能なポイントがありません');
+  /*
+   * Balance read and payout written under the user's row lock, in one
+   * transaction. The read used to happen outside any transaction, with nothing
+   * serialising two requests: a double-click on すぐ出金 had both calls read the
+   * same balance and write a `fast_out` conversion each, so the operator
+   * transferred the same credits as yen twice.
+   */
+  await transaction(undefined, async (t) => {
+    await lockUser(t, userId);
 
-  const costs = computeCastPayout(creditBalance, true);
-  const minNet = config.payout_min_net_amount;
-  if (costs.netOut < minNet) {
-    throw new AppError(
-      `振込金額が${minNet}円未満のため申請できません（手数料差引後の最低額：${minNet}円）`,
-    );
-  }
+    const { creditBalance } = await payableBalanceFor(userId, t);
+    // fast payouts ignore the monthly restriction and take the whole balance
+    if (creditBalance <= 0) throw new AppError('出金可能なポイントがありません');
 
-  await makePayout({ userId, creditAmount: creditBalance, fastPayout: true });
+    const costs = computeCastPayout(creditBalance, true);
+    const minNet = config.payout_min_net_amount;
+    if (costs.netOut < minNet) {
+      throw new AppError(
+        `振込金額が${minNet}円未満のため申請できません（手数料差引後の最低額：${minNet}円）`,
+      );
+    }
+
+    await makePayout({ userId, creditAmount: creditBalance, fastPayout: true }, t);
+  });
 }
 
 /** FinancialController#record_payout, ordinary application branch. */
@@ -180,47 +194,56 @@ export async function requestPayout(
   userId: number,
   input: { payoutType: 'full' | 'partial'; specifiedNetAmount?: number },
 ): Promise<{ scheduledOn: string }> {
-  const existing = await prisma.payoutRequest.findFirst({
-    where: { userId, status: { in: ['pending', 'on_hold'] } },
-    select: { id: true },
-  });
-  if (existing) {
-    throw new AppError('すでに申請中の出金があります。処理完了後に再度申請してください。');
-  }
-
-  const { payableBalance } = await payableBalanceFor(userId);
-  const fee = config.payout_base_fee;
-  const minNet = config.payout_min_net_amount;
-
-  let creditAmount: number;
-  let netAmount: number;
-
-  if (input.payoutType === 'partial') {
-    const specifiedNet = input.specifiedNetAmount ?? 0;
-    if (specifiedNet < minNet) throw new AppError(`振込金額は${minNet}円以上で指定してください`);
-    creditAmount = specifiedNet + fee;
-    if (creditAmount > payableBalance) {
-      throw new AppError(
-        `指定金額が出金可能残高を超えています（最大 ${Math.max(payableBalance - fee, 0)}円）`,
-      );
-    }
-    netAmount = specifiedNet;
-  } else {
-    creditAmount = payableBalance;
-    if (creditAmount <= 0) {
-      throw new AppError('出金可能なポイントがありません（当月獲得分は翌月以降に出金できます）');
-    }
-    netAmount = Math.max(creditAmount - fee, 0);
-    if (netAmount < minNet) {
-      throw new AppError(
-        `振込金額が${minNet}円未満のため申請できません（手数料${fee}円差引後の最低額：${minNet}円／必要ポイント：${minNet + fee}P以上）`,
-      );
-    }
-  }
-
   const scheduledOn = scheduledDateFor(new Date());
 
-  await prisma.$transaction(async (t) => {
+  /*
+   * The in-flight check, the balance read and the write are one atomic step
+   * under the user's row lock. They used to be three separate statements, so
+   * two concurrent applications both saw no pending request, both read the same
+   * payable balance, and both booked a deduction — leaving two pending requests
+   * for one balance, both of which reached the transfer list.
+   */
+  await transaction(undefined, async (t) => {
+    await lockUser(t, userId);
+
+    const existing = await t.payoutRequest.findFirst({
+      where: { userId, status: { in: ['pending', 'on_hold'] } },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new AppError('すでに申請中の出金があります。処理完了後に再度申請してください。');
+    }
+
+    const { payableBalance } = await payableBalanceFor(userId, t);
+    const fee = config.payout_base_fee;
+    const minNet = config.payout_min_net_amount;
+
+    let creditAmount: number;
+    let netAmount: number;
+
+    if (input.payoutType === 'partial') {
+      const specifiedNet = input.specifiedNetAmount ?? 0;
+      if (specifiedNet < minNet) throw new AppError(`振込金額は${minNet}円以上で指定してください`);
+      creditAmount = specifiedNet + fee;
+      if (creditAmount > payableBalance) {
+        throw new AppError(
+          `指定金額が出金可能残高を超えています（最大 ${Math.max(payableBalance - fee, 0)}円）`,
+        );
+      }
+      netAmount = specifiedNet;
+    } else {
+      creditAmount = payableBalance;
+      if (creditAmount <= 0) {
+        throw new AppError('出金可能なポイントがありません（当月獲得分は翌月以降に出金できます）');
+      }
+      netAmount = Math.max(creditAmount - fee, 0);
+      if (netAmount < minNet) {
+        throw new AppError(
+          `振込金額が${minNet}円未満のため申請できません（手数料${fee}円差引後の最低額：${minNet}円／必要ポイント：${minNet + fee}P以上）`,
+        );
+      }
+    }
+
     const ct = await createCreditTransaction(
       {
         chargedUserId: userId,
@@ -253,20 +276,24 @@ export async function requestPayout(
  * cast who want to bank them until an operator releases the hold.
  */
 export async function holdPayout(userId: number): Promise<void> {
-  const { payableBalance } = await payableBalanceFor(userId);
-  if (payableBalance <= 0) {
-    throw new AppError('保留できるポイントがありません（当月獲得分は翌月以降に出金できます）');
-  }
-
-  const existing = await prisma.payoutRequest.findFirst({
-    where: { userId, status: { in: ['pending', 'on_hold'] } },
-    select: { id: true },
-  });
-  if (existing) throw new AppError('すでに申請中の出金があります。');
-
   const scheduledOn = scheduledDateFor(new Date());
 
-  await prisma.$transaction(async (t) => {
+  // atomic for the same reason requestPayout is: two concurrent holds would
+  // otherwise both pass the check and both deduct the balance
+  await transaction(undefined, async (t) => {
+    await lockUser(t, userId);
+
+    const { payableBalance } = await payableBalanceFor(userId, t);
+    if (payableBalance <= 0) {
+      throw new AppError('保留できるポイントがありません（当月獲得分は翌月以降に出金できます）');
+    }
+
+    const existing = await t.payoutRequest.findFirst({
+      where: { userId, status: { in: ['pending', 'on_hold'] } },
+      select: { id: true },
+    });
+    if (existing) throw new AppError('すでに申請中の出金があります。');
+
     const ct = await createCreditTransaction(
       {
         chargedUserId: userId,
@@ -316,6 +343,18 @@ export async function processPayoutRequest(payoutRequestId: number): Promise<voi
   if (!request.creditTransactionId) throw new AppError('この申請には取引が紐付いていません');
 
   await prisma.$transaction(async (t) => {
+    /*
+     * Claim the request first, conditional on the status that was read above.
+     * The read happened outside this transaction, so two operator clicks both
+     * saw 'pending' and each booked a conversion against the same request —
+     * the company balance then moved twice for one transfer.
+     */
+    const claimed = await t.payoutRequest.updateMany({
+      where: { id: request.id, status: request.status },
+      data: { status: 'processed', processedAt: new Date() },
+    });
+    if (claimed.count !== 1) throw new AppError('この申請はすでに処理済みです');
+
     const cc = await createCreditConversion(
       {
         creditTransactionId: request.creditTransactionId!,
@@ -330,7 +369,7 @@ export async function processPayoutRequest(payoutRequestId: number): Promise<voi
     );
     await t.payoutRequest.update({
       where: { id: request.id },
-      data: { status: 'processed', processedAt: new Date(), creditConversionId: cc.id },
+      data: { creditConversionId: cc.id },
     });
   });
 }

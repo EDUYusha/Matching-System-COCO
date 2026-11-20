@@ -257,7 +257,13 @@ export const orderRequestFormSchema = z.object({
   startTime: z.string(),
   areaId: z.coerce.number().int(),
   areaName: z.string().optional().nullable(),
-  baseCostPerTime: z.coerce.number().int(),
+  /*
+   * Positive, always. The cast supplies this fee, and the cast-level limits
+   * below are the only other check — they are skipped entirely when the cast
+   * has no level, so an unbounded value here let a negative price through, and
+   * a negative charge *adds* credits to the guest's balance.
+   */
+  baseCostPerTime: z.coerce.number().int().positive(),
 });
 
 export type OrderRequestFormInput = z.infer<typeof orderRequestFormSchema>;

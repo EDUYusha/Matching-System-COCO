@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { ZodError, type ZodTypeAny, type z } from 'zod';
 import { AppError } from '@/server/lib/errors';
 import { logger } from '@/server/lib/logger';
+import { env } from '@/server/config/env';
+import { PEER_IP_HEADER } from '@/server/http/peer-ip';
+
+export { PEER_IP_HEADER };
 
 /**
  * The adapter every Route Handler is written against.
@@ -141,10 +145,25 @@ export function queryObject(searchParams: URLSearchParams): Record<string, strin
 
 /**
  * The caller's address, for InternalApi::BaseController#must_be_local_request.
- * Behind a proxy Next sees the proxy, so the forwarded chain wins when present.
+ *
+ * `x-forwarded-for` is believed only when TRUST_PROXY_HEADERS says a proxy
+ * rewrites it — anyone can otherwise send that header and claim to be on the
+ * private network the internal API trusts. Without it the peer address stamped
+ * by the custom server is used, and `undefined` (no custom server, e.g. plain
+ * `next dev`) denies rather than allows.
  */
-export function clientIp(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
-  return request.headers.get('x-real-ip') ?? '127.0.0.1';
+export function clientIp(request: NextRequest): string | undefined {
+  if (env.trustProxyHeaders) {
+    const forwarded = request.headers.get('x-forwarded-for');
+    if (forwarded) return forwarded.split(',')[0].trim();
+    const real = request.headers.get('x-real-ip');
+    if (real) return real.trim();
+  }
+
+  const peer = request.headers.get(PEER_IP_HEADER);
+  if (peer) return peer.trim();
+
+  // `npm run dev:next` serves without the custom server, so there is no peer
+  // header to read; development is allowed to assume localhost, nothing else is
+  return env.isDevelopment ? '127.0.0.1' : undefined;
 }

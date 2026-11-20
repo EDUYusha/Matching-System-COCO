@@ -1,6 +1,6 @@
 import type { MessageCategory } from '@/lib';
 import { prisma, transaction, type Tx } from '@/server/lib/prisma';
-import { formatUserContent, truncate } from '@/server/lib/sanitize';
+import { formatUserContent, sanitizeSystemHtml, truncate } from '@/server/lib/sanitize';
 import { logger } from '@/server/lib/logger';
 import { findOrCreateSystemConversation } from '@/server/services/conversations';
 import { enqueueMessageBroadcast } from '@/server/jobs/queues';
@@ -78,6 +78,13 @@ async function addUnreadMessages(
   if (rows.length) await t.unreadMessage.createMany({ data: rows });
 }
 
+/**
+ * Longest message body accepted, on the HTTP path and the socket alike. The
+ * column is unbounded text and nothing used to check a length, so one client
+ * could store a message of any size that every reader of the room then fetched.
+ */
+export const MAX_MESSAGE_LENGTH = 5_000;
+
 /** Message#sender_is_speaker_in_conversation (the system user is always allowed). */
 async function assertSenderIsSpeaker(t: Tx, conversationId: number, senderId: number): Promise<void> {
   if (senderId === SYSTEM_USER_ID) return;
@@ -91,9 +98,22 @@ export async function createMessage(input: CreateMessageInput, tx?: Tx) {
   const message = await transaction(tx, async (t) => {
     await assertSenderIsSpeaker(t, input.conversationId, input.senderId);
 
-    // before_create :format_content — escape and linkify, text messages only
+    /*
+     * before_create :format_content — escape and linkify, text messages only.
+     *
+     * Anything that skips that escaping is server-authored markup (a system
+     * notice, a sticker bubble) and reaches the client through
+     * dangerouslySetInnerHTML, so it goes through the system allow-list rather
+     * than being trusted whole: these strings interpolate user-supplied values
+     * such as nickName, which made every one of them a stored-XSS sink. A
+     * picture is a bare URL in an <img src>, not markup, so it is left as it is.
+     */
     const content =
-      input.withoutFormat || category !== 'text' ? input.content : formatUserContent(input.content);
+      category === 'picture'
+        ? input.content
+        : input.withoutFormat || category !== 'text'
+          ? sanitizeSystemHtml(input.content)
+          : formatUserContent(input.content);
 
     const created = await t.message.create({
       data: {

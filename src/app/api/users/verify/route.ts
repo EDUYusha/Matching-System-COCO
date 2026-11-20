@@ -2,6 +2,7 @@ import { config } from '@/lib';
 import { AppError } from '@/server/lib/errors';
 import { validateUser, assertValid } from '@/server/services/users';
 import { sendVerificationSms } from '@/server/services/sms';
+import { issueVerification } from '@/server/services/sms-verification';
 import { readSession, setSession } from '@/server/auth/session';
 import { jsonBody, route } from '@/server/http/route';
 import { signupSchema } from '@/server/api/users-shared';
@@ -32,9 +33,11 @@ export const POST = route(async (request) => {
   if (!body.phone) throw new AppError('電話番号を入力してください');
 
   const { code, phone } = await sendVerificationSms(body.phone);
+  // the code stays server-side; the session carries only the handle to it
+  const verificationId = await issueVerification(phone, code);
   await setSession({
     userId: 0,
-    scratch: { ...((await readSession())?.scratch ?? {}), sms_verification_code: code, telephone_number: phone },
+    scratch: { ...((await readSession())?.scratch ?? {}), sms_verification_id: verificationId },
   });
   return { ok: true, smsRequired: true };
 });

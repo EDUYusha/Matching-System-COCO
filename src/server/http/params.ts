@@ -39,8 +39,19 @@ function keyPath(key: string): string[] {
   return path;
 }
 
+/**
+ * Keys that would reach `Object.prototype` rather than the params object.
+ * Rack expanded into a Ruby Hash, where these are ordinary keys; in JS
+ * `node['__proto__'] = child` walks the prototype chain instead, so one request
+ * could pollute every object in this process. The panel never sends them, so
+ * they are dropped rather than escaped.
+ */
+const UNSAFE_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
+
 function assign(node: Params, path: string[], value: string): void {
   const [key, ...rest] = path;
+
+  if (key === undefined || UNSAFE_KEYS.has(key)) return;
 
   if (rest.length === 0) {
     node[key] = value;
@@ -75,6 +86,9 @@ export function expandParams(entries: Iterable<[string, string]>): Params {
 export function mergeParams(base: Params, overlay: Params): Params {
   const out: Params = { ...base };
   for (const [key, value] of Object.entries(overlay)) {
+    // a JSON body can carry `__proto__` as an own key, which assigning here
+    // would hand to the prototype chain
+    if (UNSAFE_KEYS.has(key)) continue;
     const current = out[key];
     const bothPlainObjects =
       current !== null &&

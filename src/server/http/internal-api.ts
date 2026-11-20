@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { ZodError } from 'zod';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { logger } from '@/server/lib/logger';
+import { env } from '@/server/config/env';
+import { clientIp } from '@/server/http/route';
+import { internalApiAllowed } from '@/server/api/internal-api-shared';
 
 /**
  * The response contract of the old InternalApi controllers.
@@ -154,6 +158,50 @@ export function internalApiError(error: unknown): NextResponse {
   return htmlResponse(500, RAILS_500_PAGE);
 }
 
+/** Header the operator panel and the cron host send INTERNAL_API_KEY in. */
+export const INTERNAL_API_KEY_HEADER = 'x-internal-api-key';
+
+const RAILS_403_PAGE = '<html><body><h1>403 Forbidden</h1></body></html>';
+
+/** Compares two secrets without leaking their length or a prefix match. */
+function secretMatches(provided: string, expected: string): boolean {
+  const a = createHash('sha256').update(provided).digest();
+  const b = createHash('sha256').update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
+/**
+ * InternalApi::BaseController#must_be_local_request, which was never wired up
+ * when these actions were ported: every endpoint under /internal_api drives
+ * settlement, credit grants or chat, so an open one is money and impersonation
+ * for anyone who can reach the host.
+ *
+ * Two ways in, either sufficient:
+ *   - `X-Internal-Api-Key` matching INTERNAL_API_KEY, when that is configured;
+ *   - a source address on the allow-list (localhost plus RAILS_LOCAL_ZONE),
+ *     which is what Rails checked.
+ *
+ * Returns the response to send when the caller is refused, or null to continue.
+ */
+export function internalApiDenial(request: NextRequest): NextResponse | null {
+  if (env.internalApiKey) {
+    const provided = request.headers.get(INTERNAL_API_KEY_HEADER);
+    if (provided && secretMatches(provided, env.internalApiKey)) return null;
+  }
+
+  const ip = clientIp(request);
+  if (internalApiAllowed(ip)) return null;
+
+  logger.warn(
+    { ip: ip ?? null, path: new URL(request.url).pathname, keyed: Boolean(env.internalApiKey) },
+    'internal_api: refused a caller that is neither local nor keyed',
+  );
+  return new NextResponse(RAILS_403_PAGE, {
+    status: 403,
+    headers: { 'content-type': 'text/html; charset=utf-8' },
+  });
+}
+
 type Context<P> = { params: Promise<P> };
 
 type InternalApiHandler<P> = (
@@ -168,6 +216,9 @@ type InternalApiHandler<P> = (
  */
 export function internalApiRoute<P = Record<string, string>>(handler: InternalApiHandler<P>) {
   return async (request: NextRequest, context: Context<P>): Promise<NextResponse> => {
+    const denied = internalApiDenial(request);
+    if (denied) return denied;
+
     try {
       const params = (await context?.params) ?? ({} as P);
       const result = await handler(request, { params });

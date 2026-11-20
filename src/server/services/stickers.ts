@@ -458,24 +458,43 @@ export async function payForRoulettePrize(input: {
   });
   if (!roll) throw new InteractorFailure('無効なID');
 
-  const ct = await createCreditTransaction({
-    chargedAmount: roll.roulette.fee,
-    chargedUserId: input.payerId,
-    creditedAmount: stickerRevenue(roll.winningEntry.stickerTemplate),
-    creditedUserId: input.granteeId,
-    reason: 'ギフトルーレット',
-    category: 'sticker',
-    withBalanceUpdates: true,
-  });
+  /*
+   * One roll, one prize. The roll used to be marked `pending: false` only after
+   * the charge and the gift, with no transaction and no conditional update, so
+   * concurrent requests all matched the same pending row and each one charged
+   * the fee and handed over a prize. Claiming the row first — inside the
+   * transaction, conditional on it still being pending — makes the second
+   * caller lose the race, and a later failure rolls the claim back with it.
+   */
+  return transaction(undefined, async (tx) => {
+    const claimed = await tx.rouletteRoll.updateMany({
+      where: { id: roll.id, pending: true },
+      data: { pending: false },
+    });
+    if (claimed.count !== 1) throw new InteractorFailure('無効なID');
 
-  const result = await giveSticker({
-    buyerId: input.payerId,
-    recipientId: input.granteeId,
-    templateId: roll.winningEntry.stickerTemplateId,
-    conversationId: input.conversationId,
-    creditTransactionId: ct.id,
-  });
+    const ct = await createCreditTransaction(
+      {
+        chargedAmount: roll.roulette.fee,
+        chargedUserId: input.payerId,
+        creditedAmount: stickerRevenue(roll.winningEntry.stickerTemplate),
+        creditedUserId: input.granteeId,
+        reason: 'ギフトルーレット',
+        category: 'sticker',
+        withBalanceUpdates: true,
+      },
+      tx,
+    );
 
-  await prisma.rouletteRoll.update({ where: { id: roll.id }, data: { pending: false } });
-  return result;
+    return giveSticker(
+      {
+        buyerId: input.payerId,
+        recipientId: input.granteeId,
+        templateId: roll.winningEntry.stickerTemplateId,
+        conversationId: input.conversationId,
+        creditTransactionId: ct.id,
+      },
+      tx,
+    );
+  });
 }

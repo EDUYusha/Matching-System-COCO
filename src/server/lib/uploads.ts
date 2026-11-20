@@ -1,5 +1,5 @@
 import { createWriteStream, existsSync } from 'node:fs';
-import { mkdir, rm, stat } from 'node:fs/promises';
+import { mkdir, rm, stat, unlink } from 'node:fs/promises';
 import { dirname, extname, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { randomBytes } from 'node:crypto';
@@ -96,7 +96,14 @@ export async function storeUpload(
     if (size > MAX_UPLOAD_BYTES) stream.destroy(new AppError('ファイルサイズが大きすぎます（最大20MB）'));
   });
 
-  await pipeline(stream, createWriteStream(target));
+  try {
+    await pipeline(stream, createWriteStream(target));
+  } catch (error) {
+    // the bytes written before the limit tripped used to stay on disk, so a
+    // loop of rejected uploads filled it 20MB at a time
+    await unlink(target).catch(() => undefined);
+    throw error;
+  }
   const stats = await stat(target);
 
   return {

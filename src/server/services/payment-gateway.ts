@@ -205,7 +205,14 @@ export async function enroll3ds(params: {
   cardHolderElement(request, params.holder);
 
   const xmlBody = doc.end({ prettyPrint: false });
-  logger.info({ xmlBody }, 'enroll xml');
+  /*
+   * The body carries PAYMENT_ZKEY and the cardholder's name and phone, so it is
+   * never logged as it stands — that put the gateway credential and card PII in
+   * every production log line for a card registration. Development keeps the
+   * dump, because debugging the gateway's XML needs it.
+   */
+  if (env.isDevelopment) logger.debug({ xmlBody }, 'enroll xml');
+  else logger.info({ sendId: params.sendId }, 'enroll xml built');
 
   if (simulateExternalCalls) {
     return {

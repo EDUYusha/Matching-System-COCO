@@ -3,7 +3,7 @@ import { Server as SocketServer, type Socket } from 'socket.io';
 import { logger } from '@/server/lib/logger';
 import { prisma } from '@/server/lib/prisma';
 import { SESSION_COOKIE, verifyApiToken, verifySession } from '@/server/lib/auth';
-import { createMessage } from '@/server/services/messages';
+import { createMessage, MAX_MESSAGE_LENGTH } from '@/server/services/messages';
 import { markActivity } from '@/server/services/users';
 import { streams, subscribeToBus, type CablePayload } from '@/server/realtime/bus';
 import { config } from '@/lib';
@@ -86,45 +86,17 @@ export function attachSocketServer(httpServer: HttpServer): SocketServer {
   io.on('connection', async (socket) => {
     const userId = socket.data.userId as number;
 
-    socket.join(streams.chatForUser(userId));
-    socket.join(streams.systemNotesForUser(userId));
-
-    // MeetingChannel#subscribed
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        userType: true,
-        businessAreaId: true,
-        castLevelId: true,
-        availableUntil: true,
-      },
+    /*
+     * Everything that touches the database is guarded, because Socket.IO does
+     * not await or catch this callback: a pool timeout during a reconnect storm
+     * became an unhandled rejection that killed the process serving every HTTP
+     * request as well. A failure here costs this socket its meeting-request
+     * rooms; the chat rooms above and the handlers below are registered either
+     * way.
+     */
+    await subscribeToMeetingRooms(socket, userId).catch((error: unknown) => {
+      logger.error({ error, userId }, 'socket meeting subscription failed');
     });
-
-    if (user) {
-      if (user.userType === 'admin' || user.userType === 'system') {
-        const pairs = await prisma.castLevelsRank.findMany({
-          include: { castRank: { select: { businessAreaId: true } } },
-        });
-        for (const pair of pairs) {
-          socket.join(streams.meetingRequests(pair.castRank.businessAreaId, pair.castLevelId));
-        }
-      } else if (user.userType === 'operator' && user.businessAreaId) {
-        const pairs = await prisma.castLevelsRank.findMany({
-          where: { castRank: { businessAreaId: user.businessAreaId } },
-          include: { castRank: { select: { businessAreaId: true } } },
-        });
-        for (const pair of pairs) {
-          socket.join(streams.meetingRequests(pair.castRank.businessAreaId, pair.castLevelId));
-        }
-      } else if (
-        user.businessAreaId &&
-        user.castLevelId &&
-        ((user.availableUntil && user.availableUntil.getTime() > Date.now()) ||
-          config.cast_always_receive_meeting_notifications)
-      ) {
-        socket.join(streams.meetingRequests(user.businessAreaId, user.castLevelId));
-      }
-    }
 
     logger.debug({ userId }, 'socket connected');
 
@@ -132,6 +104,11 @@ export function attachSocketServer(httpServer: HttpServer): SocketServer {
     socket.on('send_message', async (data: { conversation_id?: number; content?: string }) => {
       try {
         if (!data?.conversation_id || !data.content) return;
+        // the same cap the HTTP path applies; the socket had none at all
+        if (data.content.length > MAX_MESSAGE_LENGTH) {
+          socket.emit('error_message', { message: 'メッセージが長すぎます' });
+          return;
+        }
         const speaker = await prisma.speaker.findFirst({
           where: { conversationId: Number(data.conversation_id), userId },
           select: { id: true },
@@ -188,4 +165,46 @@ export function attachSocketServer(httpServer: HttpServer): SocketServer {
   });
 
   return io;
+}
+
+/** MeetingChannel#subscribed — the rooms a socket gets by role and area. */
+async function subscribeToMeetingRooms(socket: Socket, userId: number): Promise<void> {
+  socket.join(streams.chatForUser(userId));
+  socket.join(streams.systemNotesForUser(userId));
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      userType: true,
+      businessAreaId: true,
+      castLevelId: true,
+      availableUntil: true,
+    },
+  });
+
+  if (user) {
+    if (user.userType === 'admin' || user.userType === 'system') {
+      const pairs = await prisma.castLevelsRank.findMany({
+        include: { castRank: { select: { businessAreaId: true } } },
+      });
+      for (const pair of pairs) {
+        socket.join(streams.meetingRequests(pair.castRank.businessAreaId, pair.castLevelId));
+      }
+    } else if (user.userType === 'operator' && user.businessAreaId) {
+      const pairs = await prisma.castLevelsRank.findMany({
+        where: { castRank: { businessAreaId: user.businessAreaId } },
+        include: { castRank: { select: { businessAreaId: true } } },
+      });
+      for (const pair of pairs) {
+        socket.join(streams.meetingRequests(pair.castRank.businessAreaId, pair.castLevelId));
+      }
+    } else if (
+      user.businessAreaId &&
+      user.castLevelId &&
+      ((user.availableUntil && user.availableUntil.getTime() > Date.now()) ||
+        config.cast_always_receive_meeting_notifications)
+    ) {
+      socket.join(streams.meetingRequests(user.businessAreaId, user.castLevelId));
+    }
+  }
 }

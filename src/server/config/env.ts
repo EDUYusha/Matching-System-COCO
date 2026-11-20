@@ -15,6 +15,26 @@ function str(name: string, fallback?: string): string {
   return value;
 }
 
+/**
+ * A value whose fallback is a development convenience, never something to ship.
+ * In production and staging a missing or empty variable throws at boot instead:
+ * these sign sessions or point at infrastructure, so falling back silently to a
+ * key that is public in this file — or to a localhost database — is worse than
+ * failing to start.
+ */
+function requiredOutsideDev(name: string, devFallback: string): string {
+  const value = process.env[name];
+  if (value === undefined || value === '') {
+    if (isProduction || isStaging) {
+      throw new Error(
+        `Missing required environment variable ${name}. It has a development fallback, which is refused in ${NODE_ENV}.`,
+      );
+    }
+    return devFallback;
+  }
+  return value;
+}
+
 function num(name: string, fallback: number): number {
   const value = process.env[name];
   return value === undefined || value === '' ? fallback : Number(value);
@@ -45,12 +65,12 @@ export const env = {
   isTest,
   isDevelopment,
 
-  databaseUrl: str('DATABASE_URL', 'postgresql://coco:coco@localhost:5432/coco_v3'),
+  databaseUrl: requiredOutsideDev('DATABASE_URL', 'postgresql://coco:coco@localhost:5432/coco_v3'),
   /*
    * Database 1, so the BullMQ queues never collide with the v2 stack sharing
    * this Redis. Queue names are identical between the two builds.
    */
-  redisUrl: str('REDIS_URL', 'redis://localhost:6379/1'),
+  redisUrl: requiredOutsideDev('REDIS_URL', 'redis://localhost:6379/1'),
 
   port: num('PORT', 3000),
   host: str('HOST', '0.0.0.0'),
@@ -62,11 +82,44 @@ export const env = {
    */
   hostPrefix: str('HOST_PREFIX', 'http://localhost:3000'),
 
-  secretKeyBase: str('SECRET_KEY_BASE', 'development-secret-key-base-change-me-0000000000000000000000000'),
-  adminSecretKeyBase: str('ADMIN_SECRET_KEY_BASE', 'development-admin-secret-change-me-00000000000000000000000000000'),
+  secretKeyBase: requiredOutsideDev(
+    'SECRET_KEY_BASE',
+    'development-secret-key-base-change-me-0000000000000000000000000',
+  ),
+  adminSecretKeyBase: requiredOutsideDev(
+    'ADMIN_SECRET_KEY_BASE',
+    'development-admin-secret-change-me-00000000000000000000000000000',
+  ),
 
-  /** InternalApi::BaseController#must_be_local_request */
-  localZones: list('RAILS_LOCAL_ZONE', ['10.0.0.0/8', '172.17.0.0/16', '192.168.0.0/16']),
+  /**
+   * InternalApi::BaseController#must_be_local_request.
+   *
+   * The original supplied the three private ranges as a default only when
+   * `!Rails.env.production?`, so a production box with no RAILS_LOCAL_ZONE
+   * allowed localhost and nothing else. Keeping the default list in production
+   * would quietly open the internal API to anything that can reach the app from
+   * inside a 10/8 — which, on a shared host or a container network, is a good
+   * deal more than the operator panel. Localhost is allowed unconditionally by
+   * internalApiAllowed(), so this list only ever adds to it.
+   */
+  localZones: isProduction
+    ? list('RAILS_LOCAL_ZONE', [])
+    : list('RAILS_LOCAL_ZONE', ['10.0.0.0/8', '172.17.0.0/16', '192.168.0.0/16']),
+
+  /**
+   * Shared secret for the internal API, sent by the operator panel and the cron
+   * host as `X-Internal-Api-Key`. Optional: when it is unset the source-address
+   * allow-list above is the only gate, which is what Rails did. Setting it is
+   * what makes the internal API safe to expose beyond a private network.
+   */
+  internalApiKey: str('INTERNAL_API_KEY', ''),
+
+  /**
+   * Whether `x-forwarded-for` can be believed. Only true behind a proxy that
+   * overwrites the header, because the internal-API allow-list trusts the
+   * address it yields — a client can otherwise claim any source address.
+   */
+  trustProxyHeaders: bool('TRUST_PROXY_HEADERS', false),
 
   // turbopackIgnore: read at runtime only; without this the tracer pulls the
   // whole project (public/ included) into the server bundle
@@ -112,6 +165,21 @@ export const env = {
   },
   adminEmailAddresses: list('ADMIN_EMAIL_ADDRESSES', isDevelopment ? ['test_admin@example.net'] : []),
 } as const;
+
+/*
+ * The internal API's allowlist is the only thing standing between the order
+ * lifecycle endpoints and the open internet, so a production box running without
+ * RAILS_LOCAL_ZONE says so once at boot. It is a warning rather than a refusal
+ * to start: localhost still reaches the API, which is how the cron host calls
+ * it, and taking the whole site down over a panel that is unreachable anyway
+ * would be the worse failure.
+ */
+if (isProduction && env.localZones.length === 0) {
+  console.warn(
+    'RAILS_LOCAL_ZONE is unset: /internal_api is reachable from localhost only. ' +
+      'Set it to the CIDR ranges the operator panel and the cron host call from.',
+  );
+}
 
 /**
  * In the original these were toggled by Rails.env. `simulate` short-circuits the

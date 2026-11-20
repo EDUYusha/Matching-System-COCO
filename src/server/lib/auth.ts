@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { env } from '@/server/config/env';
 
 /**
@@ -37,9 +37,13 @@ export function alphanumeric(length = 10): string {
   return out;
 }
 
-/** Six-digit SMS verification code, zero padded (SecureRandom.random_number(0..999999)). */
+/**
+ * Six-digit SMS verification code, zero padded (SecureRandom.random_number(0..999999)).
+ * `randomInt`, not `Math.random`, because this is a credential: Math.random is
+ * seeded predictably and is not meant to be unguessable.
+ */
 export function smsVerificationCode(): string {
-  return String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0');
+  return String(randomInt(0, 1_000_000)).padStart(6, '0');
 }
 
 /**
