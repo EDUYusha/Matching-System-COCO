@@ -121,6 +121,17 @@ export const env = {
    */
   trustProxyHeaders: bool('TRUST_PROXY_HEADERS', false),
 
+  /**
+   * A font with Japanese glyphs, for the receipt PDF.
+   *
+   * PDFKit's built-in fonts are WinAnsi-only, so every Japanese character on a
+   * receipt came out as mojibake. No font ships with the repo — redistributing
+   * one is a licensing decision, not a technical one — so the path is
+   * configuration. A TrueType Collection (.ttc) also needs the family name.
+   */
+  receiptFontPath: str('RECEIPT_FONT_PATH', ''),
+  receiptFontFamily: str('RECEIPT_FONT_FAMILY', ''),
+
   // turbopackIgnore: read at runtime only; without this the tracer pulls the
   // whole project (public/ included) into the server bundle
   uploadsDir: resolve(/* turbopackIgnore: true */ process.cwd(), str('UPLOADS_DIR', './uploads')),

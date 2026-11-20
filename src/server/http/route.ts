@@ -75,14 +75,22 @@ type Handler<P> = (
  * passes through untouched.
  */
 export function route<P = Record<string, string>>(handler: Handler<P>) {
-  return async (request: NextRequest, context: Context<P>): Promise<NextResponse> => {
+  return async (request: NextRequest, context: Context<P>): Promise<Response> => {
     try {
       const params = (await context?.params) ?? ({} as P);
       const result = await handler(request, {
         params,
         searchParams: request.nextUrl.searchParams,
       });
-      if (result instanceof NextResponse) return result;
+      /*
+       * Any Response, not only a NextResponse. `NextResponse extends Response`,
+       * so this used to drop a handler that returned a plain `new Response(...)`
+       * into `NextResponse.json(result)` below, which serialises it as `{}`. The
+       * three handlers that return bytes rather than JSON — the receipt PDF, the
+       * cast identity photo and the 3-D Secure stub page — all did exactly that,
+       * so all three answered `{}` instead of their content.
+       */
+      if (result instanceof Response) return result;
       if (result === undefined) return NextResponse.json({ ok: true });
       return NextResponse.json(result);
     } catch (error) {

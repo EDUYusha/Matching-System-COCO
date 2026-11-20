@@ -80,7 +80,7 @@ send();
 </script>
 </body></html>`;
 
-  // NextResponse, not Response: route() serialises anything else as JSON, which
-  // is how the previous version of this page managed to return `{}`
+  // route() passed only a NextResponse through until this was found, which is
+  // how the previous version of this page managed to answer `{}`
   return new NextResponse(body, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 });

@@ -3,6 +3,9 @@ import { describe, it } from 'node:test';
 import { with3dsStubCallback } from '../src/server/services/payment-gateway';
 import { recordCosts } from '../src/server/services/meetings/model';
 import { orderFormSchema } from '../src/server/services/order-forms';
+import { route } from '../src/server/http/route';
+import { buildReceiptPdf } from '../src/server/services/receipt-pdf';
+import { env } from '../src/server/config/env';
 
 /*
  * The parity gaps closed after the September logic test. NODE_ENV is `test`
@@ -86,4 +89,71 @@ describe('order form person counts', () => {
     assert.equal(orderFormSchema.parse({ ...base, minimumPersonCount: 2 }).minimumPersonCount, 2);
     assert.equal(orderFormSchema.parse(base).minimumPersonCount, undefined);
   });
+});
+
+describe('route() with a handler that returns bytes', () => {
+  const fakeRequest = { nextUrl: { searchParams: new URLSearchParams() } } as never;
+  const fakeContext = { params: Promise.resolve({}) } as never;
+
+  it('passes a plain Response through instead of serialising it as {}', async () => {
+    const handler = route(async () => new Response('hello', { headers: { 'Content-Type': 'text/plain' } }));
+    const response = await handler(fakeRequest, fakeContext);
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('Content-Type'), 'text/plain');
+    // this returned the string "{}" until route() stopped checking for
+    // NextResponse specifically: the receipt PDF, the cast identity photo and
+    // the 3-D Secure stub page all answered `{}` instead of their content
+    assert.equal(await response.text(), 'hello');
+  });
+
+  it('still turns a returned value into JSON', async () => {
+    const handler = route(async () => ({ ok: true, n: 1 }));
+    const response = await handler(fakeRequest, fakeContext);
+    assert.deepEqual(await response.json(), { ok: true, n: 1 });
+  });
+
+  it('still answers { ok: true } for a handler that returns nothing', async () => {
+    const handler = route(async () => undefined);
+    assert.deepEqual(await (await handler(fakeRequest, fakeContext)).json(), { ok: true });
+  });
+});
+
+describe('receipt pdf', () => {
+  async function render(): Promise<Buffer> {
+    const doc = buildReceiptPdf({
+      conversionId: 42,
+      createdAt: new Date('2026-11-20T03:00:00Z'),
+      amount: 12345,
+      names: ['山田 太郎'],
+      company: null,
+    });
+    // buildReceiptPdf ends the document itself
+    const chunks: Buffer[] = [];
+    return new Promise((resolve, reject) => {
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+    });
+  }
+
+  it('renders a PDF whether or not a font is configured', async () => {
+    const pdf = await render();
+    assert.equal(pdf.subarray(0, 5).toString('latin1'), '%PDF-');
+    assert.ok(pdf.length > 1000);
+  });
+
+  it(
+    'embeds the configured Japanese font',
+    // the path is per-machine, so this only runs where one is set
+    { skip: !env.receiptFontPath },
+    async () => {
+      const text = (await render()).toString('latin1');
+      // PDFKit's built-in fonts are WinAnsi-only: without an embedded font the
+      // Japanese labels and the digits beside them both came out as mojibake
+      assert.match(text, /FontFile2/);
+      assert.match(text, /Identity-H/);
+      assert.match(text, /ToUnicode/);
+    },
+  );
 });
